@@ -135,57 +135,80 @@ async function sendDefaultMessage(chatId) {
     });
 }
 
-// New /id command function
-async function sendUserProfile(chatId, user) {
-    const userId = user.id;
-    const firstName = user.first_name;
-    const username = user.username ? `@${user.username}` : 'N/A';
-    const link = user.username ? `https://t.me/${user.username}` : 'No public link';
-    const presence = user.is_bot ? 'Bot' : 'Online'; // Simplified presence check
-    const healthPercentage = Math.floor(Math.random() * 101); // Random health for demo
-    const healthBar = generateHealthBar(healthPercentage);
-    const commonChats = 'Unknown'; // Could be fetched via API if needed
-    const blacklisted = 'No';
-    const malicious = 'No';
-
-    const profileMessage = `
-<b>✦ ᴜsᴇʀ ɪɴғᴏ ✦</b>
-•❅─────✧❅✦❅✧─────❅•
-➻ <b>ᴜsᴇʀ ɪᴅ:</b> <code>${userId}</code>
-➻ <b>ғɪʀsᴛ ɴᴀᴍᴇ:</b> ${firstName}
-➻ <b>ᴜsᴇʀɴᴀᴍᴇ:</b> ${username}
-➻ <b>ʟɪɴᴋ:</b> <a href="${link}">${link}</a>
-➻ <b>ᴩʀᴇsᴇɴᴄᴇ:</b> ${presence}
-
-<b>ʜᴇᴀʟᴛʜ:</b> ${healthPercentage}/100
-${healthBar}
-
-➻ <b>ᴄᴏᴍᴍᴏɴ ᴄʜᴀᴛs:</b> ${commonChats}
-
-<b>Blacklisted:</b> ${blacklisted}
-<b>Malicious:</b> ${malicious}
-    `;
-
-    await telegramApi('sendMessage', {
-        chat_id: chatId,
-        text: profileMessage,
-        parse_mode: 'HTML'
-    });
-}
-
-// Helper function to generate health bar
-function generateHealthBar(percentage) {
-    const totalBlocks = 10;
-    const filledBlocks = Math.round((percentage / 100) * totalBlocks);
-    const emptyBlocks = totalBlocks - filledBlocks;
-    return `[${'■'.repeat(filledBlocks)}${'□'.repeat(emptyBlocks)} ${percentage}%]`;
-}
-
 async function deleteMessage(chatId, messageId) {
     await telegramApi('deleteMessage', {
         chat_id: chatId,
         message_id: messageId
     });
+}
+
+// New function to send user profile photo and info
+async function sendUserProfile(chatId, user) {
+    const userId = user.id; // Telegram user ID
+    const userName = user.first_name;
+    const username = user.username ? `@${user.username}` : 'Not set';
+    const userLink = user.username ? `https://t.me/${user.username}` : 'No public link';
+
+    // Fetch user profile photos
+    const profilePhotos = await telegramApi('getUserProfilePhotos', {
+        user_id: userId,
+        limit: 1
+    });
+
+    if (profilePhotos && profilePhotos.result.total_count > 0) {
+        const photoId = profilePhotos.result.photos[0][0].file_id;
+
+        // Send profile photo with detailed info
+        const caption = `
+<b>✦ ᴜsᴇʀ ɪɴғᴏ ✦</b>
+•❅─────✧❅✦❅✧─────❅•
+➻ <b>User ID:</b> <code>${userId}</code>
+➻ <b>First Name:</b> ${userName}
+➻ <b>Username:</b> ${username}
+➻ <b>Link:</b> <a href="${userLink}">${userLink}</a>
+➻ <b>Presence:</b> Online (Static)
+
+<b>Health:</b> 100%
+[■■■■■■■■■■] 
+
+➻ <b>Common Chats:</b> Unknown
+➻ <b>Blacklisted:</b> No
+➻ <b>Malicious:</b> No
+<i>Code by @Teleservice_Assistant_bot</i>
+        `;
+
+        await telegramApi('sendPhoto', {
+            chat_id: chatId,
+            photo: photoId,
+            caption,
+            parse_mode: 'HTML'
+        });
+    } else {
+        // Send text if no profile photo is found
+        const text = `
+<b>✦ ᴜsᴇʀ ɪɴғᴏ ✦</b>
+•❅─────✧❅✦❅✧─────❅•
+➻ <b>User ID:</b> <code>${userId}</code>
+➻ <b>First Name:</b> ${userName}
+➻ <b>Username:</b> ${username}
+➻ <b>Link:</b> <a href="${userLink}">${userLink}</a>
+➻ <b>Presence:</b> Online (Static)
+
+<b>Health:</b> 100%
+[■■■■■■■■■■] 
+
+➻ <b>Common Chats:</b> Unknown
+➻ <b>Blacklisted:</b> No
+➻ <b>Malicious:</b> No
+<i>No profile photo found. Code by @Teleservice_Assistant_bot</i>
+        `;
+
+        await telegramApi('sendMessage', {
+            chat_id: chatId,
+            text,
+            parse_mode: 'HTML'
+        });
+    }
 }
 
 // Event listener for fetch
