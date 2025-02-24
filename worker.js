@@ -3,9 +3,8 @@ const BASE_URL = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 
 // In-memory stores
 let servedChats = new Set();
-// Super admin ID (replace with your Telegram user ID)
-const SUPER_ADMIN_ID = '6490007953'; // e.g., 123456789
-// Admin list with privileges (in-memory, replace with persistent storage in production)
+let groupSettings = new Map();
+const SUPER_ADMIN_ID = '6490007953'; // Replace with your Telegram ID
 let admins = new Map([
     [SUPER_ADMIN_ID, { canBroadcast: true, canReload: true }]
 ]);
@@ -37,9 +36,14 @@ async function handleRequest(request) {
 async function handleUpdate(update) {
     try {
         if (update.callback_query) {
-            const { data, message } = update.callback_query;
+            const { data, message, from } = update.callback_query;
             const chatId = message.chat.id;
             const messageId = message.message_id;
+
+            if (data.startsWith('/settings_')) {
+                await handleSettingsCallback(chatId, messageId, from.id, data);
+                return true;
+            }
 
             switch (data) {
                 case '/Commands':
@@ -58,7 +62,6 @@ async function handleUpdate(update) {
             const { text, chat, from: user, reply_to_message, message_id } = update.message;
             const chatId = chat.id;
 
-            // Add chat to servedChats
             servedChats.add(chatId);
 
             switch (text?.split(' ')[0]) {
@@ -80,11 +83,7 @@ async function handleUpdate(update) {
                     break;
                 case '/broadcast':
                     if (!admins.has(user.id.toString()) || !admins.get(user.id.toString()).canBroadcast) {
-                        await telegramApi('sendMessage', {
-                            chat_id: chatId,
-                            text: '<b>⚠️ Access Denied: Only admins with broadcast privileges can use this.</b>',
-                            parse_mode: 'HTML'
-                        });
+                        await telegramApi('sendMessage', { chat_id: chatId, text: '<b>⚠️ Access Denied: Only admins with broadcast privileges can use this.</b>', parse_mode: 'HTML' });
                     } else {
                         await handleBroadcast(chatId, user, text, reply_to_message);
                     }
@@ -94,14 +93,16 @@ async function handleUpdate(update) {
                     break;
                 case '/reload':
                     if (user.id.toString() !== SUPER_ADMIN_ID) {
-                        await telegramApi('sendMessage', {
-                            chat_id: chatId,
-                            text: '<b>⚠️ Access Denied: Only the super admin can reload.</b>',
-                            parse_mode: 'HTML'
-                        });
+                        await telegramApi('sendMessage', { chat_id: chatId, text: '<b>⚠️ Access Denied: Only the super admin can reload.</b>', parse_mode: 'HTML' });
                     } else {
                         await handleReload(chatId, user);
                     }
+                    break;
+                case '/settings':
+                    await handleSettings(chatId, user, message_id);
+                    break;
+                case '/ban':
+                    await handleBan(chatId, user, reply_to_message, message_id);
                     break;
                 default:
                     await sendDefaultMessage(chatId);
@@ -117,6 +118,9 @@ async function handleUpdate(update) {
 
 // Message sending functions
 async function sendWelcomeMessage(chatId, user) {
+    const settings = groupSettings.get(chatId.toString()) || { welcomeEnabled: true, language: 'en' };
+    if (chatId < 0 && !settings.welcomeEnabled) return;
+
     const videoUrl = 'https://t.me/kajal_developer/57';
     const buttons = [
         [{ text: '💻 Commands', callback_data: '/Commands' }],
@@ -165,11 +169,7 @@ async function sendAboutMessage(chatId, user) {
 ‣ Developer: <a href="https://t.me/kingvj01">Tech VJ</a>
 ‣ Build Status: <b>v [Stable]</b>`;
 
-    await telegramApi('sendMessage', {
-        chat_id: chatId,
-        text: aboutMessage,
-        parse_mode: 'HTML'
-    });
+    await telegramApi('sendMessage', { chat_id: chatId, text: aboutMessage, parse_mode: 'HTML' });
 }
 
 async function sendDefaultMessage(chatId) {
@@ -181,10 +181,7 @@ async function sendDefaultMessage(chatId) {
 }
 
 async function deleteMessage(chatId, messageId) {
-    await telegramApi('deleteMessage', {
-        chat_id: chatId,
-        message_id: messageId
-    });
+    await telegramApi('deleteMessage', { chat_id: chatId, message_id: messageId });
 }
 
 async function sendUserProfile(chatId, user) {
@@ -193,11 +190,7 @@ async function sendUserProfile(chatId, user) {
     const username = user.username ? `@${user.username}` : 'Not set';
     const userLink = user.username ? `https://t.me/${user.username}` : 'No public link';
 
-    const profilePhotos = await telegramApi('getUserProfilePhotos', {
-        user_id: userId,
-        limit: 1
-    });
-
+    const profilePhotos = await telegramApi('getUserProfilePhotos', { user_id: userId, limit: 1 });
     if (profilePhotos && profilePhotos.result.total_count > 0) {
         const photoId = profilePhotos.result.photos[0][0].file_id;
         const caption = `
@@ -208,22 +201,13 @@ async function sendUserProfile(chatId, user) {
 ➻ <b>Username:</b> ${username}
 ➻ <b>Link:</b> <a href="${userLink}">${userLink}</a>
 ➻ <b>Presence:</b> Online (Static)
-
-<b>Health:</b> 100%
-[■■■■■■■■■■] 
-
+<b>Health:</b> 100% [■■■■■■■■■■]
 ➻ <b>Common Chats:</b> Unknown
 ➻ <b>Blacklisted:</b> No
 ➻ <b>Malicious:</b> No
 <i>Code by @Teleservice_Assistant_bot</i>
         `;
-
-        await telegramApi('sendPhoto', {
-            chat_id: chatId,
-            photo: photoId,
-            caption,
-            parse_mode: 'HTML'
-        });
+        await telegramApi('sendPhoto', { chat_id: chatId, photo: photoId, caption, parse_mode: 'HTML' });
     } else {
         const text = `
 <b>✦ ᴜsᴇʀ ɪɴғᴏ ✦</b>
@@ -233,37 +217,23 @@ async function sendUserProfile(chatId, user) {
 ➻ <b>Username:</b> ${username}
 ➻ <b>Link:</b> <a href="${userLink}">${userLink}</a>
 ➻ <b>Presence:</b> Online (Static)
-
-<b>Health:</b> 100%
-[■■■■■■■■■■] 
-
+<b>Health:</b> 100% [■■■■■■■■■■]
 ➻ <b>Common Chats:</b> Unknown
 ➻ <b>Blacklisted:</b> No
 ➻ <b>Malicious:</b> No
 <i>No profile photo found. Code by @Teleservice_Assistant_bot</i>
         `;
-
-        await telegramApi('sendMessage', {
-            chat_id: chatId,
-            text,
-            parse_mode: 'HTML'
-        });
+        await telegramApi('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML' });
     }
 }
 
 async function sendPing(chatId) {
     const startTime = performance.now();
-    const pingMessage = await telegramApi('sendMessage', {
-        chat_id: chatId,
-        text: '<b>🏓 Pinging...</b>',
-        parse_mode: 'HTML'
-    });
-
+    const pingMessage = await telegramApi('sendMessage', { chat_id: chatId, text: '<b>🏓 Pinging...</b>', parse_mode: 'HTML' });
     if (!pingMessage || !pingMessage.result) return;
 
     const endTime = performance.now();
     const timeTakenMs = (endTime - startTime).toFixed(3);
-
     const pingText = `
 <b>🏓 Ping Results 🔥</b>
 •❅─────✧❅✦❅✧─────❅•
@@ -272,7 +242,6 @@ async function sendPing(chatId) {
 ➻ <b>Bot Health:</b> Alive 🟢
 <i>Powered by xAI Tech</i>
     `;
-
     await telegramApi('editMessageText', {
         chat_id: chatId,
         message_id: pingMessage.result.message_id,
@@ -283,42 +252,25 @@ async function sendPing(chatId) {
 
 async function handleBroadcast(chatId, user, text, replyToMessage) {
     let broadcastMessage;
-
     if (replyToMessage) {
         broadcastMessage = replyToMessage.text || replyToMessage.caption || 'Media message';
     } else {
         const messageContent = text.replace('/broadcast', '').trim();
         if (!messageContent) {
-            await telegramApi('sendMessage', {
-                chat_id: chatId,
-                text: '<b>⚠️ Please provide a message or reply to one to broadcast!</b>',
-                parse_mode: 'HTML'
-            });
+            await telegramApi('sendMessage', { chat_id: chatId, text: '<b>⚠️ Please provide a message or reply to one to broadcast!</b>', parse_mode: 'HTML' });
             return;
         }
         broadcastMessage = messageContent;
     }
 
-    const statusMessage = await telegramApi('sendMessage', {
-        chat_id: chatId,
-        text: '<b>📢 Broadcasting...</b>',
-        parse_mode: 'HTML'
-    });
-
+    const statusMessage = await telegramApi('sendMessage', { chat_id: chatId, text: '<b>📢 Broadcasting...</b>', parse_mode: 'HTML' });
     if (!statusMessage || !statusMessage.result) return;
 
-    let sentCount = 0;
-    let failedCount = 0;
-
+    let sentCount = 0, failedCount = 0;
     for (const targetChatId of servedChats) {
         if (targetChatId === chatId) continue;
-        const result = await telegramApi('sendMessage', {
-            chat_id: targetChatId,
-            text: broadcastMessage,
-            parse_mode: 'HTML'
-        });
-        if (result) sentCount++;
-        else failedCount++;
+        const result = await telegramApi('sendMessage', { chat_id: targetChatId, text: broadcastMessage, parse_mode: 'HTML' });
+        if (result) sentCount++; else failedCount++;
     }
 
     const broadcastResult = `
@@ -330,7 +282,6 @@ async function handleBroadcast(chatId, user, text, replyToMessage) {
 ➻ <b>Total Chats:</b> <code>${servedChats.size}</code>
 <i>Admin: @${user.username || 'Unknown'} | Powered by xAI</i>
     `;
-
     await telegramApi('editMessageText', {
         chat_id: chatId,
         message_id: statusMessage.result.message_id,
@@ -339,24 +290,15 @@ async function handleBroadcast(chatId, user, text, replyToMessage) {
     });
 }
 
-// New /reload command
 async function handleReload(chatId, user) {
-    // Simulate reloading admin list (replace with actual logic for your source)
     const updatedAdmins = new Map([
-        [SUPER_ADMIN_ID, { canBroadcast: true, canReload: true }], // Super admin retains all privileges
-        ['SECOND_ADMIN_ID', { canBroadcast: true, canReload: false }], // Example additional admin
-        ['THIRD_ADMIN_ID', { canBroadcast: false, canReload: false }]  // Example with limited privileges
+        [SUPER_ADMIN_ID, { canBroadcast: true, canReload: true }],
+        ['SECOND_ADMIN_ID', { canBroadcast: true, canReload: false }],
+        ['THIRD_ADMIN_ID', { canBroadcast: false, canReload: false }]
     ]);
+    admins = updatedAdmins;
 
-    admins = updatedAdmins; // Update the global admins list
-
-    // Send stylish confirmation
-    const reloadMessage = await telegramApi('sendMessage', {
-        chat_id: chatId,
-        text: '<b>🔄 Reloading Admin List...</b>',
-        parse_mode: 'HTML'
-    });
-
+    const reloadMessage = await telegramApi('sendMessage', { chat_id: chatId, text: '<b>🔄 Reloading Admin List...</b>', parse_mode: 'HTML' });
     if (!reloadMessage || !reloadMessage.result) return;
 
     const reloadResult = `
@@ -367,13 +309,172 @@ async function handleReload(chatId, user) {
 ➻ <b>Privileges Updated:</b> ✅
 <i>Reloaded by @${user.username || 'Unknown'} | Powered by xAI</i>
     `;
-
     await telegramApi('editMessageText', {
         chat_id: chatId,
         message_id: reloadMessage.result.message_id,
         text: reloadResult,
         parse_mode: 'HTML'
     });
+}
+
+async function handleSettings(chatId, user, messageId) {
+    if (chatId > 0) {
+        await telegramApi('sendMessage', { chat_id: chatId, text: '<b>⚠️ /settings is only available in groups!</b>', parse_mode: 'HTML' });
+        return;
+    }
+
+    const member = await telegramApi('getChatMember', { chat_id: chatId, user_id: user.id });
+    if (!member || !['administrator', 'creator'].includes(member.result.status)) {
+        await telegramApi('sendMessage', { chat_id: chatId, text: '<b>⚠️ Only group admins can use /settings!</b>', parse_mode: 'HTML' });
+        return;
+    }
+
+    const settings = groupSettings.get(chatId.toString()) || { welcomeEnabled: true, language: 'en' };
+    groupSettings.set(chatId.toString(), settings);
+
+    const buttons = [
+        [
+            { text: `Welcome Msg: ${settings.welcomeEnabled ? '✅ On' : '❌ Off'}`, callback_data: '/settings_toggleWelcome' },
+            { text: `Language: ${settings.language.toUpperCase()}`, callback_data: '/settings_changeLanguage' }
+        ],
+        [{ text: 'Close', callback_data: '/closeSettings' }]
+    ];
+
+    const settingsText = `
+<b>⚙️ Group Settings ⚙️</b>
+•❅─────✧❅✦❅✧─────❅•
+➻ <b>Chat ID:</b> <code>${chatId}</code>
+➻ <b>Welcome Msg:</b> ${settings.welcomeEnabled ? 'Enabled' : 'Disabled'}
+➻ <b>Language:</b> ${settings.language.toUpperCase()}
+<i>Manage bot settings for this group | Powered by xAI</i>
+    `;
+    await telegramApi('sendMessage', { chat_id: chatId, text: settingsText, parse_mode: 'HTML', reply_markup: { inline_keyboard: buttons } });
+    await deleteMessage(chatId, messageId);
+}
+
+async function handleSettingsCallback(chatId, messageId, userId, data) {
+    const member = await telegramApi('getChatMember', { chat_id: chatId, user_id: userId });
+    if (!member || !['administrator', 'creator'].includes(member.result.status)) {
+        await telegramApi('editMessageText', {
+            chat_id: chatId,
+            message_id: messageId,
+            text: '<b>⚠️ Only group admins can modify settings!</b>',
+            parse_mode: 'HTML'
+        });
+        return;
+    }
+
+    const settings = groupSettings.get(chatId.toString()) || { welcomeEnabled: true, language: 'en' };
+
+    switch (data) {
+        case '/settings_toggleWelcome':
+            settings.welcomeEnabled = !settings.welcomeEnabled;
+            break;
+        case '/settings_changeLanguage':
+            settings.language = settings.language === 'en' ? 'es' : 'en';
+            break;
+        case '/closeSettings':
+            await deleteMessage(chatId, messageId);
+            return;
+    }
+
+    groupSettings.set(chatId.toString(), settings);
+
+    const buttons = [
+        [
+            { text: `Welcome Msg: ${settings.welcomeEnabled ? '✅ On' : '❌ Off'}`, callback_data: '/settings_toggleWelcome' },
+            { text: `Language: ${settings.language.toUpperCase()}`, callback_data: '/settings_changeLanguage' }
+        ],
+        [{ text: 'Close', callback_data: '/closeSettings' }]
+    ];
+
+    const updatedText = `
+<b>⚙️ Group Settings ⚙️</b>
+•❅─────✧❅✦❅✧─────❅•
+➻ <b>Chat ID:</b> <code>${chatId}</code>
+➻ <b>Welcome Msg:</b> ${settings.welcomeEnabled ? 'Enabled' : 'Disabled'}
+➻ <b>Language:</b> ${settings.language.toUpperCase()}
+<i>Settings updated | Powered by xAI</i>
+    `;
+    await telegramApi('editMessageText', {
+        chat_id: chatId,
+        message_id: messageId,
+        text: updatedText,
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: buttons }
+    });
+}
+
+// New /ban command
+async function handleBan(chatId, user, replyToMessage, messageId) {
+    // Check if it's a group
+    if (chatId > 0) {
+        await telegramApi('sendMessage', { chat_id: chatId, text: '<b>⚠️ /ban is only available in groups!</b>', parse_mode: 'HTML' });
+        return;
+    }
+
+    // Check if user is an admin
+    const member = await telegramApi('getChatMember', { chat_id: chatId, user_id: user.id });
+    if (!member || !['administrator', 'creator'].includes(member.result.status)) {
+        await telegramApi('sendMessage', { chat_id: chatId, text: '<b>⚠️ Only group admins can use /ban!</b>', parse_mode: 'HTML' });
+        return;
+    }
+
+    // Check if there's a reply to ban a user
+    if (!replyToMessage) {
+        await telegramApi('sendMessage', { chat_id: chatId, text: '<b>⚠️ Please reply to a user’s message to ban them!</b>', parse_mode: 'HTML' });
+        return;
+    }
+
+    const targetUser = replyToMessage.from;
+    const targetUserId = targetUser.id;
+
+    // Prevent banning admins or the bot itself
+    const targetMember = await telegramApi('getChatMember', { chat_id: chatId, user_id: targetUserId });
+    if (targetMember.result.status === 'administrator' || targetMember.result.status === 'creator') {
+        await telegramApi('sendMessage', { chat_id: chatId, text: '<b>⚠️ Cannot ban group admins!</b>', parse_mode: 'HTML' });
+        return;
+    }
+    if (targetUserId === (await telegramApi('getMe')).result.id) {
+        await telegramApi('sendMessage', { chat_id: chatId, text: '<b>⚠️ I can’t ban myself!</b>', parse_mode: 'HTML' });
+        return;
+    }
+
+    // Ban the user permanently
+    const banResult = await telegramApi('banChatMember', {
+        chat_id: chatId,
+        user_id: targetUserId,
+        revoke_messages: true, // Delete all messages from the user
+        until_date: 0 // Permanent ban (0 = forever)
+    });
+
+    // Send stylish confirmation
+    const banMessage = await telegramApi('sendMessage', {
+        chat_id: chatId,
+        text: `<b>🔨 Banning @${targetUser.username || targetUser.first_name}...</b>`,
+        parse_mode: 'HTML'
+    });
+
+    if (!banMessage || !banMessage.result) return;
+
+    const banText = `
+<b>🔨 User Banned 🚫</b>
+•❅─────✧❅✦❅✧─────❅•
+➻ <b>User:</b> @${targetUser.username || targetUser.first_name} (<code>${targetUserId}</code>)
+➻ <b>Status:</b> ${banResult.ok ? 'Permanently Banned' : 'Failed'}
+➻ <b>Messages:</b> ${banResult.ok ? 'Deleted' : 'Not Deleted'}
+<i>Banned by @${user.username || user.first_name} | Powered by xAI</i>
+    `;
+
+    await telegramApi('editMessageText', {
+        chat_id: chatId,
+        message_id: banMessage.result.message_id,
+        text: banText,
+        parse_mode: 'HTML'
+    });
+
+    // Delete the /ban command message
+    await deleteMessage(chatId, messageId);
 }
 
 // Event listener for fetch
