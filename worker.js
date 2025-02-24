@@ -1,6 +1,11 @@
 const TELEGRAM_TOKEN = '7286429810:AAHBzO7SFy6AjYv8avTRKWQg53CJpD2KEbM';
 const BASE_URL = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 
+// In-memory store for chat IDs (replace with persistent storage in production)
+let servedChats = new Set();
+// Admin user ID (replace with your Telegram user ID)
+const ADMIN_ID = '6490007953'; // e.g., 123456789
+
 // Utility function for Telegram API calls
 async function telegramApi(method, payload) {
     try {
@@ -46,10 +51,13 @@ async function handleUpdate(update) {
         }
 
         if (update.message) {
-            const { text, chat, from: user } = update.message;
+            const { text, chat, from: user, reply_to_message } = update.message;
             const chatId = chat.id;
 
-            switch (text) {
+            // Add chat to servedChats whenever a message is received
+            servedChats.add(chatId);
+
+            switch (text?.split(' ')[0]) { // Split to handle commands with arguments
                 case '/start':
                     await sendWelcomeMessage(chatId, user);
                     break;
@@ -65,6 +73,17 @@ async function handleUpdate(update) {
                     break;
                 case '/ping':
                     await sendPing(chatId);
+                    break;
+                case '/broadcast':
+                    if (user.id.toString() !== ADMIN_ID) {
+                        await telegramApi('sendMessage', {
+                            chat_id: chatId,
+                            text: '<b>⚠️ Access Denied: Only admins can use /broadcast.</b>',
+                            parse_mode: 'HTML'
+                        });
+                    } else {
+                        await handleBroadcast(chatId, user, text, reply_to_message);
+                    }
                     break;
                 default:
                     await sendDefaultMessage(chatId);
@@ -214,11 +233,8 @@ async function sendUserProfile(chatId, user) {
     }
 }
 
-// New /ping command with stylish design
 async function sendPing(chatId) {
-    const startTime = performance.now(); // High-precision timing
-
-    // Send initial "Pinging..." message
+    const startTime = performance.now();
     const pingMessage = await telegramApi('sendMessage', {
         chat_id: chatId,
         text: '<b>🏓 Pinging...</b>',
@@ -228,9 +244,8 @@ async function sendPing(chatId) {
     if (!pingMessage || !pingMessage.result) return;
 
     const endTime = performance.now();
-    const timeTakenMs = (endTime - startTime).toFixed(3); // Time in milliseconds
+    const timeTakenMs = (endTime - startTime).toFixed(3);
 
-    // Edit the message with a stylish ping response
     const pingText = `
 <b>🏓 Ping Results 🔥</b>
 •❅─────✧❅✦❅✧─────❅•
@@ -244,6 +259,69 @@ async function sendPing(chatId) {
         chat_id: chatId,
         message_id: pingMessage.result.message_id,
         text: pingText,
+        parse_mode: 'HTML'
+    });
+}
+
+// New /broadcast command
+async function handleBroadcast(chatId, user, text, replyToMessage) {
+    let broadcastMessage;
+
+    // Check if it's a reply or direct message
+    if (replyToMessage) {
+        broadcastMessage = replyToMessage.text || replyToMessage.caption || 'Media message';
+    } else {
+        const messageContent = text.replace('/broadcast', '').trim();
+        if (!messageContent) {
+            await telegramApi('sendMessage', {
+                chat_id: chatId,
+                text: '<b>⚠️ Please provide a message or reply to one to broadcast!</b>',
+                parse_mode: 'HTML'
+            });
+            return;
+        }
+        broadcastMessage = messageContent;
+    }
+
+    // Send initial broadcast status
+    const statusMessage = await telegramApi('sendMessage', {
+        chat_id: chatId,
+        text: '<b>📢 Broadcasting...</b>',
+        parse_mode: 'HTML'
+    });
+
+    if (!statusMessage || !statusMessage.result) return;
+
+    let sentCount = 0;
+    let failedCount = 0;
+
+    // Broadcast to all served chats
+    for (const targetChatId of servedChats) {
+        if (targetChatId === chatId) continue; // Skip the admin's chat
+        const result = await telegramApi('sendMessage', {
+            chat_id: targetChatId,
+            text: broadcastMessage,
+            parse_mode: 'HTML'
+        });
+        if (result) sentCount++;
+        else failedCount++;
+    }
+
+    // Update with stylish broadcast result
+    const broadcastResult = `
+<b>📢 Broadcast Complete 🌐</b>
+•❅─────✧❅✦❅✧─────❅•
+➻ <b>Message:</b> <i>${broadcastMessage}</i>
+➻ <b>Sent:</b> <code>${sentCount}</code> chats
+➻ <b>Failed:</b> <code>${failedCount}</code> chats
+➻ <b>Total Chats:</b> <code>${servedChats.size}</code>
+<i>Admin: @${user.username || 'Unknown'} | Powered by xAI</i>
+    `;
+
+    await telegramApi('editMessageText', {
+        chat_id: chatId,
+        message_id: statusMessage.result.message_id,
+        text: broadcastResult,
         parse_mode: 'HTML'
     });
 }
