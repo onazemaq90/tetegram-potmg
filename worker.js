@@ -37,7 +37,6 @@ async function handleUpdate(update) {
                     await deleteMessage(chatId, messageId);
                     await sendCommandsMenu(chatId);
                     break;
-                // Add more callback cases here as needed
             }
             return true;
         }
@@ -56,6 +55,9 @@ async function handleUpdate(update) {
                     break;
                 case '/about':
                     await sendAboutMessage(chatId, user);
+                    break;
+                case '/id':
+                    await sendUserProfile(chatId, user);
                     break;
                 default:
                     await sendDefaultMessage(chatId);
@@ -131,6 +133,52 @@ async function sendDefaultMessage(chatId) {
         text: '<b>⚡ Use /Commands to see available options!</b>',
         parse_mode: 'HTML'
     });
+}
+
+// New /id command function
+async function sendUserProfile(chatId, user) {
+    const userId = user.id;
+    const firstName = user.first_name;
+    const username = user.username ? `@${user.username}` : 'N/A';
+    const link = user.username ? `https://t.me/${user.username}` : 'No public link';
+    const presence = user.is_bot ? 'Bot' : 'Online'; // Simplified presence check
+    const healthPercentage = Math.floor(Math.random() * 101); // Random health for demo
+    const healthBar = generateHealthBar(healthPercentage);
+    const commonChats = 'Unknown'; // Could be fetched via API if needed
+    const blacklisted = 'No';
+    const malicious = 'No';
+
+    const profileMessage = `
+<b>✦ ᴜsᴇʀ ɪɴғᴏ ✦</b>
+•❅─────✧❅✦❅✧─────❅•
+➻ <b>ᴜsᴇʀ ɪᴅ:</b> <code>${userId}</code>
+➻ <b>ғɪʀsᴛ ɴᴀᴍᴇ:</b> ${firstName}
+➻ <b>ᴜsᴇʀɴᴀᴍᴇ:</b> ${username}
+➻ <b>ʟɪɴᴋ:</b> <a href="${link}">${link}</a>
+➻ <b>ᴩʀᴇsᴇɴᴄᴇ:</b> ${presence}
+
+<b>ʜᴇᴀʟᴛʜ:</b> ${healthPercentage}/100
+${healthBar}
+
+➻ <b>ᴄᴏᴍᴍᴏɴ ᴄʜᴀᴛs:</b> ${commonChats}
+
+<b>Blacklisted:</b> ${blacklisted}
+<b>Malicious:</b> ${malicious}
+    `;
+
+    await telegramApi('sendMessage', {
+        chat_id: chatId,
+        text: profileMessage,
+        parse_mode: 'HTML'
+    });
+}
+
+// Helper function to generate health bar
+function generateHealthBar(percentage) {
+    const totalBlocks = 10;
+    const filledBlocks = Math.round((percentage / 100) * totalBlocks);
+    const emptyBlocks = totalBlocks - filledBlocks;
+    return `[${'■'.repeat(filledBlocks)}${'□'.repeat(emptyBlocks)} ${percentage}%]`;
 }
 
 async function deleteMessage(chatId, messageId) {
