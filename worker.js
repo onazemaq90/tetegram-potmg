@@ -6,54 +6,80 @@ async function handleRequest(request) {
   const url = new URL(request.url);
   const path = url.pathname;
 
-  // API endpoint: /api/download?url=<pin.it or in.pinterest.com URL>
+  // API endpoint
   if (path.startsWith("/api/download")) {
-    const pinUrl = url.searchParams.get("url");
-    if (!pinUrl || (!pinUrl.includes("pin.it") && !pinUrl.includes("in.pinterest.com"))) {
-      return new Response(JSON.stringify({ error: "Invalid Pinterest URL" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    try {
-      // Fetch the Pinterest URL
-      const response = await fetch(pinUrl, {
-        headers: { "User-Agent": "Mozilla/5.0" }, // Basic UA to avoid blocking
-      });
-      const html = await response.text();
-
-      // Extract media URL (simplified scraping; use Pinterest API for production)
-      const mediaMatch = html.match(/"contentUrl":\s*"([^"]+\.(jpg|png|mp4))"/);
-      const mediaUrl = mediaMatch ? mediaMatch[1] : null;
-
-      if (!mediaUrl) {
-        return new Response(JSON.stringify({ error: "No media found" }), {
-          status: 404,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-
-      return new Response(JSON.stringify({ mediaUrl }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    } catch (error) {
-      return new Response(JSON.stringify({ error: "Failed to fetch media" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    return handleAPIRequest(request);
   }
 
-  // Serve the "New World Best Edit" web page
+  // Serve enhanced web page
   return new Response(generateHTML(), {
     status: 200,
     headers: { "Content-Type": "text/html" },
   });
 }
 
-// Generate sleek, modern HTML page
+async function handleAPIRequest(request) {
+  const url = new URL(request.url);
+  const pinUrl = url.searchParams.get("url");
+
+  // Validate URL
+  if (!pinUrl || !isValidPinterestURL(pinUrl)) {
+    return jsonResponse({ error: "Invalid Pinterest URL" }, 400);
+  }
+
+  try {
+    const mediaUrl = await fetchMediaUrl(pinUrl);
+    return jsonResponse({ mediaUrl });
+  } catch (error) {
+    return jsonResponse({ error: error.message }, 500);
+  }
+}
+
+function isValidPinterestURL(url) {
+  const patterns = [
+    /^https?:\/\/(www\.)?pinterest\.(com|it)\/pin\//,
+    /^https?:\/\/pin\.it\/\w+/,
+    /^https?:\/\/(www\.)?in\.pinterest\.com\/pin\//
+  ];
+  return patterns.some(pattern => pattern.test(url));
+}
+
+async function fetchMediaUrl(pinUrl) {
+  const response = await fetch(pinUrl, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+      "Accept-Language": "en-US,en;q=0.9"
+    }
+  });
+  
+  if (!response.ok) throw new Error("Failed to fetch Pinterest page");
+  
+  const html = await response.text();
+  const jsonData = html.match(/<script data-test-id="video-snippet".*?>(.*?)<\/script>/s);
+  
+  if (jsonData) {
+    try {
+      const data = JSON.parse(jsonData[1]);
+      return data.contentUrl || data.thumbnailUrl;
+    } catch (e) {
+      throw new Error("Failed to parse media data");
+    }
+  }
+  
+  throw new Error("Media not found in page");
+}
+
+function jsonResponse(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*"
+    }
+  });
+}
+
+// Enhanced HTML generator with modern design
 function generateHTML() {
   return `
     <!DOCTYPE html>
@@ -61,89 +87,165 @@ function generateHTML() {
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>New World Best Edit - Pinterest Media Downloader</title>
+      <title>🔥 NWBE - Pinterest Media Downloader</title>
+      <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
       <style>
-        body {
+        :root {
+          --neon-green: #0f0;
+          --dark-bg: #0a0a0a;
+          --glow: 0 0 15px var(--neon-green);
+        }
+
+        * {
+          box-sizing: border-box;
           margin: 0;
-          font-family: 'Arial', sans-serif;
-          background: linear-gradient(135deg, #1e3c72, #2a5298);
-          color: #fff;
+          padding: 0;
+        }
+
+        body {
+          background: var(--dark-bg);
+          font-family: 'Montserrat', sans-serif;
+          min-height: 100vh;
           display: flex;
           justify-content: center;
           align-items: center;
-          min-height: 100vh;
+          color: var(--neon-green);
+          overflow-x: hidden;
         }
-        .container {
-          background: rgba(255, 255, 255, 0.1);
-          padding: 40px;
-          border-radius: 15px;
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-          backdrop-filter: blur(10px);
-          text-align: center;
+
+        .cyber-container {
+          border: 2px solid var(--neon-green);
+          box-shadow: var(--glow);
+          padding: 2rem;
           max-width: 600px;
+          width: 90%;
+          position: relative;
+          background: rgba(0, 0, 0, 0.8);
         }
-        h1 {
-          font-size: 2.5em;
-          margin-bottom: 20px;
-          text-transform: uppercase;
-          letter-spacing: 2px;
+
+        .cyber-title {
+          text-align: center;
+          font-size: 2.5rem;
+          margin-bottom: 1.5rem;
+          text-shadow: var(--glow);
+          position: relative;
         }
-        input {
-          width: 80%;
-          padding: 15px;
-          margin: 10px 0;
-          border: none;
-          border-radius: 25px;
-          background: rgba(255, 255, 255, 0.9);
-          font-size: 1em;
+
+        .cyber-input {
+          width: 100%;
+          padding: 1rem;
+          margin: 1rem 0;
+          background: transparent;
+          border: 2px solid var(--neon-green);
+          color: var(--neon-green);
+          font-size: 1.1rem;
+          transition: all 0.3s ease;
+        }
+
+        .cyber-input:focus {
           outline: none;
+          box-shadow: var(--glow);
         }
-        button {
-          padding: 15px 30px;
-          border: none;
-          border-radius: 25px;
-          background: #ff6f61;
-          color: #fff;
-          font-size: 1em;
+
+        .cyber-button {
+          background: transparent;
+          border: 2px solid var(--neon-green);
+          color: var(--neon-green);
+          padding: 1rem 2rem;
           cursor: pointer;
-          transition: background 0.3s ease;
+          font-size: 1.1rem;
+          transition: all 0.3s ease;
+          width: 100%;
+          position: relative;
+          overflow: hidden;
         }
-        button:hover {
-          background: #ff8a75;
+
+        .cyber-button:hover {
+          background: var(--neon-green);
+          color: var(--dark-bg);
+          box-shadow: var(--glow);
         }
-        #result {
-          margin-top: 20px;
-          font-size: 1.1em;
-          word-wrap: break-word;
+
+        .result-box {
+          margin-top: 2rem;
+          padding: 1rem;
+          border: 1px dashed var(--neon-green);
+          position: relative;
+        }
+
+        .preview-media {
+          max-width: 100%;
+          margin: 1rem 0;
+          border: 2px solid var(--neon-green);
+        }
+
+        @keyframes scanline {
+          0% { transform: translateY(-100%); }
+          100% { transform: translateY(100%); }
         }
       </style>
     </head>
     <body>
-      <div class="container">
-        <h1>New World Best Edit</h1>
-        <p>Download Pinterest Media with Ease</p>
-        <input type="text" id="pinUrl" placeholder="Enter Pinterest URL (e.g., https://pin.it/xxx or https://in.pinterest.com/xxx)">
-        <button onclick="downloadMedia()">Download</button>
-        <div id="result"></div>
+      <div class="cyber-container">
+        <h1 class="cyber-title">NWBE DOWNLOADER ☣️</h1>
+        <input type="text" class="cyber-input" id="pinUrl" placeholder="ENTER PINTEREST URL">
+        <button class="cyber-button" onclick="downloadMedia()">EXTRACT MEDIA</button>
+        
+        <div class="result-box" id="result">
+          <div id="previewContainer"></div>
+          <div id="output"></div>
+        </div>
       </div>
+
       <script>
         async function downloadMedia() {
-          const url = document.getElementById("pinUrl").value;
-          const resultDiv = document.getElementById("result");
-          resultDiv.innerHTML = "Fetching...";
+          const url = document.getElementById('pinUrl').value;
+          const output = document.getElementById('output');
+          const preview = document.getElementById('previewContainer');
+          output.innerHTML = '<div class="loading">PROCESSING...</div>';
+          preview.innerHTML = '';
 
           try {
-            const response = await fetch(\`/api/download?url=\${encodeURIComponent(url)}\`);
+            const response = await fetch('/api/download?url=' + encodeURIComponent(url));
             const data = await response.json();
 
             if (data.error) {
-              resultDiv.innerHTML = \`Error: \${data.error}\`;
+              output.innerHTML = \`<div class="error">ERROR: \${data.error}</div>\`;
             } else {
-              resultDiv.innerHTML = \`Media URL: <a href="\${data.mediaUrl}" target="_blank">\${data.mediaUrl}</a>\`;
+              output.innerHTML = \`
+                <div class="success">
+                  MEDIA FOUND!<br>
+                  <button onclick="downloadFile('\${data.mediaUrl}')" class="cyber-button">
+                    DOWNLOAD NOW
+                  </button>
+                </div>
+              \`;
+              
+              // Media preview
+              if (data.mediaUrl.match(/\.(mp4|mov)$/i)) {
+                preview.innerHTML = \`
+                  <video controls class="preview-media">
+                    <source src="\${data.mediaUrl}" type="video/mp4">
+                  </video>
+                \`;
+              } else {
+                preview.innerHTML = \`
+                  <img src="\${data.mediaUrl}" class="preview-media" alt="Preview">
+                \`;
+              }
             }
           } catch (error) {
-            resultDiv.innerHTML = "Error: Unable to fetch media.";
+            output.innerHTML = \`<div class="error">CONNECTION FAILED</div>\`;
           }
+        }
+
+        function downloadFile(url) {
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = 'nwbe-download' + (url.match(/\.mp4/) ? '.mp4' : '.jpg');
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
         }
       </script>
     </body>
