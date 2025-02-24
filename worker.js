@@ -4,7 +4,7 @@ addEventListener("fetch", (event) => {
 
 const TELEGRAM_API = "https://api.telegram.org/bot";
 const BOT_TOKEN = "7286429810:AAHBzO7SFy6AjYv8avTRKWQg53CJpD2KEbM"; // Replace with your bot token or use env.BOT_TOKEN
-const WORKER_URL = "https://<your-worker>.workers.dev"; // Replace with your Worker URL
+const WORKER_URL = "https://tetegram-potmg.bjplover94.workers.dev"; // Replace with your Worker URL
 
 async function handleRequest(request) {
   const url = new URL(request.url);
