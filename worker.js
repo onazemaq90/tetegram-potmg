@@ -1,10 +1,14 @@
 const TELEGRAM_TOKEN = '7286429810:AAHBzO7SFy6AjYv8avTRKWQg53CJpD2KEbM';
 const BASE_URL = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 
-// In-memory store for chat IDs (replace with persistent storage in production)
+// In-memory stores
 let servedChats = new Set();
-// Admin user ID (replace with your Telegram user ID)
-const ADMIN_ID = '6490007953'; // e.g., 123456789
+// Super admin ID (replace with your Telegram user ID)
+const SUPER_ADMIN_ID = '6490007953'; // e.g., 123456789
+// Admin list with privileges (in-memory, replace with persistent storage in production)
+let admins = new Map([
+    [SUPER_ADMIN_ID, { canBroadcast: true, canReload: true }]
+]);
 
 // Utility function for Telegram API calls
 async function telegramApi(method, payload) {
@@ -51,18 +55,18 @@ async function handleUpdate(update) {
         }
 
         if (update.message) {
-            const { text, chat, from: user, reply_to_message } = update.message;
+            const { text, chat, from: user, reply_to_message, message_id } = update.message;
             const chatId = chat.id;
 
-            // Add chat to servedChats whenever a message is received
+            // Add chat to servedChats
             servedChats.add(chatId);
 
-            switch (text?.split(' ')[0]) { // Split to handle commands with arguments
+            switch (text?.split(' ')[0]) {
                 case '/start':
                     await sendWelcomeMessage(chatId, user);
                     break;
                 case '/Commands':
-                    await deleteMessage(chatId, update.message.message_id);
+                    await deleteMessage(chatId, message_id);
                     await sendCommandsMenu(chatId);
                     break;
                 case '/about':
@@ -75,14 +79,28 @@ async function handleUpdate(update) {
                     await sendPing(chatId);
                     break;
                 case '/broadcast':
-                    if (user.id.toString() !== ADMIN_ID) {
+                    if (!admins.has(user.id.toString()) || !admins.get(user.id.toString()).canBroadcast) {
                         await telegramApi('sendMessage', {
                             chat_id: chatId,
-                            text: '<b>⚠️ Access Denied: Only admins can use /broadcast.</b>',
+                            text: '<b>⚠️ Access Denied: Only admins with broadcast privileges can use this.</b>',
                             parse_mode: 'HTML'
                         });
                     } else {
                         await handleBroadcast(chatId, user, text, reply_to_message);
+                    }
+                    break;
+                case '/close':
+                    await deleteMessage(chatId, message_id);
+                    break;
+                case '/reload':
+                    if (user.id.toString() !== SUPER_ADMIN_ID) {
+                        await telegramApi('sendMessage', {
+                            chat_id: chatId,
+                            text: '<b>⚠️ Access Denied: Only the super admin can reload.</b>',
+                            parse_mode: 'HTML'
+                        });
+                    } else {
+                        await handleReload(chatId, user);
                     }
                     break;
                 default:
@@ -263,11 +281,9 @@ async function sendPing(chatId) {
     });
 }
 
-// New /broadcast command
 async function handleBroadcast(chatId, user, text, replyToMessage) {
     let broadcastMessage;
 
-    // Check if it's a reply or direct message
     if (replyToMessage) {
         broadcastMessage = replyToMessage.text || replyToMessage.caption || 'Media message';
     } else {
@@ -283,7 +299,6 @@ async function handleBroadcast(chatId, user, text, replyToMessage) {
         broadcastMessage = messageContent;
     }
 
-    // Send initial broadcast status
     const statusMessage = await telegramApi('sendMessage', {
         chat_id: chatId,
         text: '<b>📢 Broadcasting...</b>',
@@ -295,9 +310,8 @@ async function handleBroadcast(chatId, user, text, replyToMessage) {
     let sentCount = 0;
     let failedCount = 0;
 
-    // Broadcast to all served chats
     for (const targetChatId of servedChats) {
-        if (targetChatId === chatId) continue; // Skip the admin's chat
+        if (targetChatId === chatId) continue;
         const result = await telegramApi('sendMessage', {
             chat_id: targetChatId,
             text: broadcastMessage,
@@ -307,7 +321,6 @@ async function handleBroadcast(chatId, user, text, replyToMessage) {
         else failedCount++;
     }
 
-    // Update with stylish broadcast result
     const broadcastResult = `
 <b>📢 Broadcast Complete 🌐</b>
 •❅─────✧❅✦❅✧─────❅•
@@ -322,6 +335,43 @@ async function handleBroadcast(chatId, user, text, replyToMessage) {
         chat_id: chatId,
         message_id: statusMessage.result.message_id,
         text: broadcastResult,
+        parse_mode: 'HTML'
+    });
+}
+
+// New /reload command
+async function handleReload(chatId, user) {
+    // Simulate reloading admin list (replace with actual logic for your source)
+    const updatedAdmins = new Map([
+        [SUPER_ADMIN_ID, { canBroadcast: true, canReload: true }], // Super admin retains all privileges
+        ['SECOND_ADMIN_ID', { canBroadcast: true, canReload: false }], // Example additional admin
+        ['THIRD_ADMIN_ID', { canBroadcast: false, canReload: false }]  // Example with limited privileges
+    ]);
+
+    admins = updatedAdmins; // Update the global admins list
+
+    // Send stylish confirmation
+    const reloadMessage = await telegramApi('sendMessage', {
+        chat_id: chatId,
+        text: '<b>🔄 Reloading Admin List...</b>',
+        parse_mode: 'HTML'
+    });
+
+    if (!reloadMessage || !reloadMessage.result) return;
+
+    const reloadResult = `
+<b>🔄 Admin Reload Complete ⚡</b>
+•❅─────✧❅✦❅✧─────❅•
+➻ <b>Total Admins:</b> <code>${admins.size}</code>
+➻ <b>Super Admin:</b> <code>${SUPER_ADMIN_ID}</code>
+➻ <b>Privileges Updated:</b> ✅
+<i>Reloaded by @${user.username || 'Unknown'} | Powered by xAI</i>
+    `;
+
+    await telegramApi('editMessageText', {
+        chat_id: chatId,
+        message_id: reloadMessage.result.message_id,
+        text: reloadResult,
         parse_mode: 'HTML'
     });
 }
