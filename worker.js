@@ -37,6 +37,10 @@ async function handleUpdate(update) {
                     await deleteMessage(chatId, messageId);
                     await sendCommandsMenu(chatId);
                     break;
+                case '/goBack':
+                    await deleteMessage(chatId, messageId);
+                    await sendWelcomeMessage(chatId, { id: chatId, first_name: 'User' }); // Simplified user object
+                    break;
             }
             return true;
         }
@@ -76,7 +80,8 @@ async function sendWelcomeMessage(chatId, user) {
     const videoUrl = 'https://t.me/kajal_developer/57';
     const buttons = [
         [{ text: '💻 Commands', callback_data: '/Commands' }],
-        [{ text: '👨‍💻 DEV', url: 'https://t.me/Teleservices_Api' }]
+        [{ text: '👨‍💻 DEV', url: 'https://t.me/Teleservices_Api' }],
+        [{ text: '◀️ Go Back', callback_data: '/goBack' }] // Added Go Back button
     ];
     const caption = `<b>👋 Welcome Back, ${user.first_name}!</b>\n\n🌟 Bot Status: Alive 🟢\n💞 Dev: @LakshayDied`;
 
@@ -100,7 +105,7 @@ async function sendCommandsMenu(chatId) {
             { text: '📢 Channel', url: 'https://t.me/Teleservices_Api' },
             { text: '👨‍💻 DEV', url: 'https://t.me/Teleservices_Bots' }
         ],
-        [{ text: '◀️ Go Back', callback_data: '/black' }]
+        [{ text: '◀️ Go Back', callback_data: '/goBack' }]
     ];
     const caption = `<b>[𖤐] XS Developer:</b>\n\n<b>[ϟ] Current Gateways & Tools:</b>\n<b>[ᛟ] Charge: 0</b>\n<b>[ᛟ] Auth: 0</b>\n<b>[ᛟ] Tools: 2</b>`;
 
@@ -142,14 +147,12 @@ async function deleteMessage(chatId, messageId) {
     });
 }
 
-// New function to send user profile photo and info
 async function sendUserProfile(chatId, user) {
-    const userId = user.id; // Telegram user ID
+    const userId = user.id;
     const userName = user.first_name;
     const username = user.username ? `@${user.username}` : 'Not set';
     const userLink = user.username ? `https://t.me/${user.username}` : 'No public link';
 
-    // Fetch user profile photos
     const profilePhotos = await telegramApi('getUserProfilePhotos', {
         user_id: userId,
         limit: 1
@@ -157,8 +160,6 @@ async function sendUserProfile(chatId, user) {
 
     if (profilePhotos && profilePhotos.result.total_count > 0) {
         const photoId = profilePhotos.result.photos[0][0].file_id;
-
-        // Send profile photo with detailed info
         const caption = `
 <b>✦ ᴜsᴇʀ ɪɴғᴏ ✦</b>
 •❅─────✧❅✦❅✧─────❅•
@@ -184,7 +185,6 @@ async function sendUserProfile(chatId, user) {
             parse_mode: 'HTML'
         });
     } else {
-        // Send text if no profile photo is found
         const text = `
 <b>✦ ᴜsᴇʀ ɪɴғᴏ ✦</b>
 •❅─────✧❅✦❅✧─────❅•
