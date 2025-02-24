@@ -39,7 +39,7 @@ async function handleUpdate(update) {
                     break;
                 case '/goBack':
                     await deleteMessage(chatId, messageId);
-                    await sendWelcomeMessage(chatId, { id: chatId, first_name: 'User' }); // Simplified user object
+                    await sendWelcomeMessage(chatId, { id: chatId, first_name: 'User' });
                     break;
             }
             return true;
@@ -63,6 +63,9 @@ async function handleUpdate(update) {
                 case '/id':
                     await sendUserProfile(chatId, user);
                     break;
+                case '/ping':
+                    await sendPing(chatId);
+                    break;
                 default:
                     await sendDefaultMessage(chatId);
             }
@@ -81,7 +84,7 @@ async function sendWelcomeMessage(chatId, user) {
     const buttons = [
         [{ text: '💻 Commands', callback_data: '/Commands' }],
         [{ text: '👨‍💻 DEV', url: 'https://t.me/Teleservices_Api' }],
-        [{ text: '◀️ Go Back', callback_data: '/goBack' }] // Added Go Back button
+        [{ text: '◀️ Go Back', callback_data: '/goBack' }]
     ];
     const caption = `<b>👋 Welcome Back, ${user.first_name}!</b>\n\n🌟 Bot Status: Alive 🟢\n💞 Dev: @LakshayDied`;
 
@@ -209,6 +212,40 @@ async function sendUserProfile(chatId, user) {
             parse_mode: 'HTML'
         });
     }
+}
+
+// New /ping command with stylish design
+async function sendPing(chatId) {
+    const startTime = performance.now(); // High-precision timing
+
+    // Send initial "Pinging..." message
+    const pingMessage = await telegramApi('sendMessage', {
+        chat_id: chatId,
+        text: '<b>🏓 Pinging...</b>',
+        parse_mode: 'HTML'
+    });
+
+    if (!pingMessage || !pingMessage.result) return;
+
+    const endTime = performance.now();
+    const timeTakenMs = (endTime - startTime).toFixed(3); // Time in milliseconds
+
+    // Edit the message with a stylish ping response
+    const pingText = `
+<b>🏓 Ping Results 🔥</b>
+•❅─────✧❅✦❅✧─────❅•
+➻ <b>Response Time:</b> <code>${timeTakenMs} ms</code>
+➻ <b>Status:</b> ${timeTakenMs < 100 ? '⚡ Lightning Fast' : timeTakenMs < 300 ? '🌟 Good' : '🐢 Slow'}
+➻ <b>Bot Health:</b> Alive 🟢
+<i>Powered by xAI Tech</i>
+    `;
+
+    await telegramApi('editMessageText', {
+        chat_id: chatId,
+        message_id: pingMessage.result.message_id,
+        text: pingText,
+        parse_mode: 'HTML'
+    });
 }
 
 // Event listener for fetch
