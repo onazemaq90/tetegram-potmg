@@ -1,185 +1,146 @@
-addEventListener("fetch", (event) => {
-  event.respondWith(handleRequest(event.request));
-});
+const TELEGRAM_TOKEN = '7286429810:AAHBzO7SFy6AjYv8avTRKWQg53CJpD2KEbM';
+const BASE_URL = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 
-const TELEGRAM_API = "https://api.telegram.org/bot";
-const BOT_TOKEN = "7286429810:AAHBzO7SFy6AjYv8avTRKWQg53CJpD2KEbM"; // Replace with your bot token or use env.BOT_TOKEN
-const WORKER_URL = "https://tetegram-potmg.bjplover94.workers.dev"; // Replace with your Worker URL
+// Utility function for Telegram API calls
+async function telegramApi(method, payload) {
+    try {
+        const response = await fetch(`${BASE_URL}/${method}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error(`Telegram API error: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.error(`Error in ${method}:`, error);
+        return null;
+    }
+}
 
+// Main request handler
 async function handleRequest(request) {
-  const url = new URL(request.url);
-
-  // Set Telegram webhook
-  if (url.pathname === "/setWebhook") {
-    const webhookUrl = `${WORKER_URL}/webhook`;
-    await fetch(`${TELEGRAM_API}${BOT_TOKEN}/setWebhook?url=${webhookUrl}`);
-    return new Response("Webhook set successfully!", { status: 200 });
-  }
-
-  // Handle Telegram webhook updates
-  if (url.pathname === "/webhook" && request.method === "POST") {
+    if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
     const update = await request.json();
-    const chatId = update.message?.chat?.id;
-    const text = update.message?.text || "";
+    return (await handleUpdate(update)) ? new Response('OK') : new Response('Error', { status: 500 });
+}
 
-    if (!chatId) return new Response("No chat ID", { status: 400 });
+// Update handler
+async function handleUpdate(update) {
+    try {
+        if (update.callback_query) {
+            const { data, message } = update.callback_query;
+            const chatId = message.chat.id;
+            const messageId = message.message_id;
 
-    // Command handlers
-    if (text.startsWith("/chk")) {
-      await checkCredentials(chatId, text);
-    } else if (text.startsWith("/txt")) {
-      await handleTextFile(chatId, update);
-    } else if (text === "/get fire.txt") {
-      await sendResults(chatId);
-    } else {
-      await sendMessage(chatId, "Use /chk <email:pass> to check credentials or /txt to upload a text file.");
+            switch (data) {
+                case '/Commands':
+                    await deleteMessage(chatId, messageId);
+                    await sendCommandsMenu(chatId);
+                    break;
+                // Add more callback cases here as needed
+            }
+            return true;
+        }
+
+        if (update.message) {
+            const { text, chat, from: user } = update.message;
+            const chatId = chat.id;
+
+            switch (text) {
+                case '/start':
+                    await sendWelcomeMessage(chatId, user);
+                    break;
+                case '/Commands':
+                    await deleteMessage(chatId, update.message.message_id);
+                    await sendCommandsMenu(chatId);
+                    break;
+                case '/about':
+                    await sendAboutMessage(chatId, user);
+                    break;
+                default:
+                    await sendDefaultMessage(chatId);
+            }
+            return true;
+        }
+        return true;
+    } catch (error) {
+        console.error('Update handling error:', error);
+        return false;
     }
-    return new Response("OK", { status: 200 });
-  }
-
-  return new Response("Welcome to the Telegram Bot!", { status: 200 });
 }
 
-// Send a message to Telegram
-async function sendMessage(chatId, text) {
-  const url = `${TELEGRAM_API}${BOT_TOKEN}/sendMessage`;
-  await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: text,
-      parse_mode: "HTML",
-    }),
-  });
+// Message sending functions
+async function sendWelcomeMessage(chatId, user) {
+    const videoUrl = 'https://t.me/kajal_developer/57';
+    const buttons = [
+        [{ text: '💻 Commands', callback_data: '/Commands' }],
+        [{ text: '👨‍💻 DEV', url: 'https://t.me/Teleservices_Api' }]
+    ];
+    const caption = `<b>👋 Welcome Back, ${user.first_name}!</b>\n\n🌟 Bot Status: Alive 🟢\n💞 Dev: @LakshayDied`;
+
+    await telegramApi('sendVideo', {
+        chat_id: chatId,
+        video: videoUrl,
+        caption,
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: buttons }
+    });
 }
 
-// Microsoft Checker Logic (Simulated)
-async function microsoftChecker(email, password) {
-  const emailDomain = email.split("@")[1]?.toLowerCase();
-  const isEdu = emailDomain?.endsWith(".edu");
-  const isOutlook = emailDomain === "outlook.com";
-  const isHotmail = emailDomain === "hotmail.com";
+async function sendCommandsMenu(chatId) {
+    const videoUrl = 'https://t.me/kajal_developer/57';
+    const buttons = [
+        [
+            { text: '🔗 Gateways', callback_data: '/black' },
+            { text: '🛠️ Tools', callback_data: '/tools' }
+        ],
+        [
+            { text: '📢 Channel', url: 'https://t.me/Teleservices_Api' },
+            { text: '👨‍💻 DEV', url: 'https://t.me/Teleservices_Bots' }
+        ],
+        [{ text: '◀️ Go Back', callback_data: '/black' }]
+    ];
+    const caption = `<b>[𖤐] XS Developer:</b>\n\n<b>[ϟ] Current Gateways & Tools:</b>\n<b>[ᛟ] Charge: 0</b>\n<b>[ᛟ] Auth: 0</b>\n<b>[ᛟ] Tools: 2</b>`;
 
-  // Simulate credential check (replace with real API logic if desired)
-  const isValid = Math.random() > 0.5; // Random success/failure for demo
-
-  return {
-    email,
-    password,
-    isEdu,
-    isOutlook,
-    isHotmail,
-    isValid,
-  };
+    await telegramApi('sendVideo', {
+        chat_id: chatId,
+        video: videoUrl,
+        caption,
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: buttons }
+    });
 }
 
-// Check Credentials (/chk command)
-async function checkCredentials(chatId, text) {
-  const parts = text.split(" ");
-  if (parts.length < 2) {
-    await sendMessage(chatId, "Usage: /chk <email:password>");
-    return;
-  }
+async function sendAboutMessage(chatId, user) {
+    const aboutMessage = `<b><blockquote>⍟───[ MY DETAILS ]───⍟</blockquote></b>
+‣ Name: <a href="https://t.me/${user.username || ''}">${user.first_name}</a>
+‣ Best Friend: <a href="tg://settings">This Person</a>
+‣ Developer: <a href="https://t.me/kingvj01">Tech VJ</a>
+‣ Build Status: <b>v [Stable]</b>`;
 
-  const [email, password] = parts[1].split(":");
-  if (!email || !password) {
-    await sendMessage(chatId, "Invalid format. Use: /chk <email:password>");
-    return;
-  }
-
-  const startTime = Date.now();
-  const result = await microsoftChecker(email, password);
-  const timeTaken = ((Date.now() - startTime) / 1000).toFixed(2);
-
-  const response = `
-☣️ <b>Credential Check Results</b> ☣️
-➾ 📧 Email: ${result.email}
-➾ 🔑 Password: ${result.password}
-➾ 🎓 EDU: ${result.isEdu ? "Yes" : "No"}
-➾ 🌐 Outlook: ${result.isOutlook ? "Yes" : "No"}
-➾ 🔥 Hotmail: ${result.isHotmail ? "Yes" : "No"}
-➾ ✅ Status: ${result.isValid ? "Valid" : "Invalid"}
-➾ 🕛 Time Taken: ${timeTaken} seconds
-🔑 <b>Access Key:</b> /get fire.txt
-`;
-  await sendMessage(chatId, response);
+    await telegramApi('sendMessage', {
+        chat_id: chatId,
+        text: aboutMessage,
+        parse_mode: 'HTML'
+    });
 }
 
-// Handle Text File Upload (/txt command)
-async function handleTextFile(chatId, update) {
-  const document = update.message?.document;
-  if (!document) {
-    await sendMessage(chatId, "Please upload a text file after /txt command.");
-    return;
-  }
-
-  const fileId = document.file_id;
-  const fileUrl = await getFileUrl(fileId);
-  const fileContent = await fetch(fileUrl).then((res) => res.text());
-  const credentials = fileContent.split("\n").filter((line) => line.includes(":"));
-
-  const startTime = Date.now();
-  let hits = 0;
-  let bad = 0;
-  const results = [];
-
-  for (const line of credentials) {
-    const [email, password] = line.split(":");
-    if (email && password) {
-      const result = await microsoftChecker(email, password);
-      results.push(result);
-      if (result.isValid) hits++;
-      else bad++;
-    }
-  }
-
-  const timeTaken = ((Date.now() - startTime) / 1000).toFixed(2);
-  const total = hits + bad;
-
-  const response = `
-✅ <b>Results</b> ✅
-➾ 📝 Total = ${total}
-➾ 🟢 Hits = ${hits}
-➾ 🔴 Bad = ${bad}
-➾ 🕛 Time Taken = ${timeTaken} seconds
-🔑 <b>Access Key:</b> /get fire.txt
-☣️ <b>Processed by Microsoft Checker</b> ☣️
-`;
-
-  await sendMessage(chatId, response);
-  await storeResults(chatId, results); // Store results for later access
+async function sendDefaultMessage(chatId) {
+    await telegramApi('sendMessage', {
+        chat_id: chatId,
+        text: '<b>⚡ Use /Commands to see available options!</b>',
+        parse_mode: 'HTML'
+    });
 }
 
-// Get Telegram file URL
-async function getFileUrl(fileId) {
-  const response = await fetch(`${TELEGRAM_API}${BOT_TOKEN}/getFile?file_id=${fileId}`);
-  const data = await response.json();
-  const filePath = data.result.file_path;
-  return `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`;
+async function deleteMessage(chatId, messageId) {
+    await telegramApi('deleteMessage', {
+        chat_id: chatId,
+        message_id: messageId
+    });
 }
 
-// Store results (simulated KV storage)
-const resultsStorage = new Map(); // Replace with Cloudflare KV in production
-async function storeResults(chatId, results) {
-  resultsStorage.set(chatId, results);
-}
-
-// Send stored results (/get fire.txt command)
-async function sendResults(chatId) {
-  const results = resultsStorage.get(chatId);
-  if (!results || results.length === 0) {
-    await sendMessage(chatId, "No results found. Run /txt first.");
-    return;
-  }
-
-  let output = "☣️ <b>Full Results</b> ☣️\n";
-  results.forEach((result) => {
-    output += `
-➾ 📧 ${result.email} | ${result.isValid ? "🟢 Valid" : "🔴 Invalid"}
-   🎓 EDU: ${result.isEdu ? "Yes" : "No"} | 🌐 Outlook: ${result.isOutlook ? "Yes" : "No"} | 🔥 Hotmail: ${result.isHotmail ? "Yes" : "No"}
-`;
-  });
-
-  await sendMessage(chatId, output);
-}
+// Event listener for fetch
+addEventListener('fetch', event => {
+    event.respondWith(handleRequest(event.request));
+});
