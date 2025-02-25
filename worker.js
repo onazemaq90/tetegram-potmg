@@ -1,209 +1,201 @@
-// cloudflare-worker.js
-export default {
-  async fetch(request, env) {
-    const url = new URL(request.url);
-    const path = url.pathname;
+addEventListener('fetch', event => {
+  event.respondWith(handleRequest(event.request))
+})
 
-    // Serve HTML page for root path
-    if (path === '/' && request.method === 'GET') {
-      return serveHtml();
-    }
+const BOT_TOKEN = '7286429810:AAGZ4Ban1Q5jh7DH_FKg_ROgMndXpwkpRO4';
+const ADMIN_ID = '7912527708';
 
-    // Handle API requests
-    if (path === '/api' && request.method === 'POST') {
-      return handleApiRequest(request);
-    }
+let user_data = {};
+let redeem_codes = {};
+let live_member_count = 0;
 
-    return new Response('Not Found', { status: 404 });
+async function handleRequest(request) {
+  const url = new URL(request.url);
+  const path = url.pathname;
+
+  if (path === '/webhook' && request.method === 'POST') {
+    const update = await request.json();
+    await handleUpdate(update);
+    return new Response('OK', { status: 200 });
   }
-};
 
-async function serveHtml() {
-  const html = `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>YouTube Audio Downloader</title>
-      <style>
-        :root {
-          --primary: #ff4757;
-          --secondary: #2ed573;
-        }
-        
-        * {
-          box-sizing: border-box;
-          margin: 0;
-          padding: 0;
-          font-family: 'Segoe UI', sans-serif;
-        }
-        
-        body {
-          min-height: 100vh;
-          background: linear-gradient(135deg, #1e1e1e, #2d3436);
-          color: white;
-          padding: 2rem;
-        }
-        
-        .container {
-          max-width: 800px;
-          margin: 0 auto;
-          text-align: center;
-        }
-        
-        h1 {
-          margin-bottom: 2rem;
-          font-size: 2.5rem;
-          background: linear-gradient(45deg, var(--primary), var(--secondary));
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-        
-        .input-group {
-          display: flex;
-          gap: 1rem;
-          margin-bottom: 2rem;
-        }
-        
-        input {
-          flex: 1;
-          padding: 1rem;
-          border: none;
-          border-radius: 8px;
-          font-size: 1rem;
-          background: rgba(255,255,255,0.1);
-          color: white;
-        }
-        
-        button {
-          padding: 1rem 2rem;
-          border: none;
-          border-radius: 8px;
-          background: var(--primary);
-          color: white;
-          cursor: pointer;
-          transition: transform 0.2s;
-        }
-        
-        button:hover {
-          transform: translateY(-2px);
-          background: #ff6b81;
-        }
-        
-        #result {
-          padding: 2rem;
-          background: rgba(255,255,255,0.05);
-          border-radius: 12px;
-          text-align: left;
-          white-space: pre-wrap;
-        }
-        
-        .loader {
-          display: none;
-          border: 4px solid rgba(255,255,255,0.1);
-          border-top: 4px solid var(--secondary);
-          border-radius: 50%;
-          width: 40px;
-          height: 40px;
-          animation: spin 1s linear infinite;
-          margin: 2rem auto;
-        }
-        
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <h1>YouTube Audio Downloader</h1>
-        <div class="input-group">
-          <input type="text" id="videoUrl" placeholder="Enter YouTube URL...">
-          <button onclick="handleConvert()">Convert</button>
-        </div>
-        <div class="loader" id="loader"></div>
-        <div id="result"></div>
-      </div>
-      
-      <script>
-        async function handleConvert() {
-          const videoUrl = document.getElementById('videoUrl').value;
-          const loader = document.getElementById('loader');
-          const resultDiv = document.getElementById('result');
-          
-          if (!videoUrl) {
-            alert('Please enter a YouTube URL');
-            return;
-          }
-          
-          try {
-            loader.style.display = 'block';
-            resultDiv.textContent = '';
-            
-            const response = await fetch('/api', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({ url: videoUrl })
-            });
-            
-            const data = await response.json();
-            resultDiv.textContent = JSON.stringify(data, null, 2);
-          } catch (error) {
-            resultDiv.textContent = 'Error: ' + error.message;
-          } finally {
-            loader.style.display = 'none';
-          }
-        }
-      </script>
-    </body>
-    </html>
-  `;
+  return new Response('Not Found', { status: 404 });
+}
 
-  return new Response(html, {
-    headers: { 'Content-Type': 'text/html' }
+async function handleUpdate(update) {
+  if (update.message) {
+    const message = update.message;
+    const user_id = message.from.id;
+    const text = message.text;
+
+    if (text === '/start') {
+      await startCommand(message);
+    } else if (text.startsWith('/redeem')) {
+      await redeemCommand(message);
+    } else if (text.startsWith('/use_redeem')) {
+      await useRedeemCommand(message);
+    } else {
+      await handleMessage(message);
+    }
+  } else if (update.callback_query) {
+    await buttonHandler(update.callback_query);
+  }
+}
+
+async function startCommand(message) {
+  const user_id = message.from.id;
+  const user_name = message.from.first_name;
+  const args = message.text.split(' ');
+
+  const referrer_id = args[1] ? args[1].replace("Bot", "") : null;
+  if (referrer_id && parseInt(referrer_id) !== user_id) {
+    if (!user_data[user_id]) {
+      user_data[user_id] = { credits: 3, referrer: parseInt(referrer_id) };
+      user_data[parseInt(referrer_id)].credits += 1;
+      await sendMessage(parseInt(referrer_id), "🎉 Someone joined using your invite! You earned +1 credit. 💰");
+    }
+  }
+
+  if (!user_data[user_id]) {
+    user_data[user_id] = { credits: 3, referrer: null };
+    live_member_count += 1;
+  }
+
+  const invite_link = `https://t.me/your_bot_username?start=Bot${user_id}`;
+  const welcome_msg = `👋 Welcome, ${user_name} 🎉\n\n💡 Explore the bot options below.\n__________________________`;
+
+  const keyboard = [
+    [{ text: "🐍 WORM GPT 🐍", callback_data: "worm_gpt" }, { text: "💰 CREDIT 💰", callback_data: "credit" }],
+    [{ text: "🔥 DEV 🔥", url: "https://t.me/GOAT_NG" }]
+  ];
+
+  await sendMessage(user_id, welcome_msg, keyboard);
+}
+
+async function buttonHandler(callback_query) {
+  const user_id = callback_query.from.id;
+  const data = callback_query.data;
+
+  if (data === "worm_gpt") {
+    const keyboard = [[{ text: "BACK", callback_data: "main_menu" }]];
+    await editMessage(callback_query.message.chat.id, callback_query.message.message_id, "💬 Ask your query below:", keyboard);
+  } else if (data === "credit") {
+    const credits = user_data[user_id]?.credits || 0;
+    const invite_link = `https://t.me/your_bot_username?start=Bot${user_id}`;
+    const message = `💰 Your Credits: ${credits}\n\n📊 Total Members: ${live_member_count}\n\nInvite friends to earn more credits! 🎉\n\nYour invite link: [Click Here](${invite_link})`;
+    const keyboard = [[{ text: "BACK", callback_data: "main_menu" }]];
+    await editMessage(callback_query.message.chat.id, callback_query.message.message_id, message, keyboard);
+  } else if (data === "main_menu") {
+    const keyboard = [
+      [{ text: "🐍 WORM GPT 🐍", callback_data: "worm_gpt" }, { text: "💰 CREDIT 💰", callback_data: "credit" }],
+      [{ text: "🔥 DEV 🔥", url: "https://t.me/GOAT_NG" }]
+    ];
+    await editMessage(callback_query.message.chat.id, callback_query.message.message_id, "💡 Back to the main menu. Choose an option below.", keyboard);
+  }
+}
+
+async function handleMessage(message) {
+  const user_id = message.from.id;
+  const text = message.text;
+
+  if (user_data[user_id]?.credits > 0) {
+    const api_url = `https://ngyt777gworm.tiiny.io/?question=${encodeURIComponent(text)}`;
+    const response = await fetch(api_url);
+    let answer = await response.text();
+
+    if (answer.includes("\n")) {
+      answer = answer.split("\n")[0];
+    }
+
+    if (!answer.includes("```") && (answer.includes("<html>") || answer.includes("<code>") || answer.includes("<script>") || answer.includes("function") || answer.includes("class"))) {
+      answer = `\`\`\`\n${answer}\n\`\`\``;
+    }
+
+    user_data[user_id].credits -= 1;
+    const new_credits = user_data[user_id].credits;
+    await sendMessage(user_id, `💡 Answer 💡 \n\n${answer}`);
+
+    const keyboard = [[{ text: "BACK", callback_data: "main_menu" }]];
+    if (new_credits > 0) {
+      await sendMessage(user_id, `Your remaining credits: ${new_credits} 💰`, keyboard);
+    } else {
+      const invite_link = `https://t.me/your_bot_username?start=Bot${user_id}`;
+      await sendMessage(user_id, `⚠️ Your credits are over.\n\nInvite friends to earn more! 🎉\n\nYour invite link: [Click Here](${invite_link})`, keyboard);
+    }
+  } else {
+    const invite_link = `https://t.me/your_bot_username?start=Bot${user_id}`;
+    await sendMessage(user_id, `⚠️ You have no credits left.\n\nInvite friends to earn more! 🚀\n\nYour invite link: [Click Here](${invite_link})`);
+  }
+}
+
+async function redeemCommand(message) {
+  const user_id = message.from.id;
+
+  if (user_id !== ADMIN_ID) {
+    await sendMessage(user_id, "❌ You are not authorized to use this command.");
+    return;
+  }
+
+  const args = message.text.split(' ');
+  if (args.length < 3) {
+    await sendMessage(user_id, "❌ Invalid format. Use: /redeem <code> (<value>)");
+    return;
+  }
+
+  const code = args[1];
+  const value = parseInt(args[2].replace(/[()]/g, ''));
+
+  redeem_codes[code] = value;
+  await sendMessage(user_id, `✅ Redeem code \`${code}\` generated for ${value} credits!`);
+}
+
+async function useRedeemCommand(message) {
+  const user_id = message.from.id;
+  const args = message.text.split(' ');
+
+  if (args.length < 2) {
+    await sendMessage(user_id, "❌ Please provide a redeem code.");
+    return;
+  }
+
+  const code = args[1];
+  if (redeem_codes[code]) {
+    const value = redeem_codes[code];
+    user_data[user_id].credits += value;
+    delete redeem_codes[code];
+    await sendMessage(user_id, `✅ Redeem successful! Your credits: ${user_data[user_id].credits} 💰`);
+  } else {
+    await sendMessage(user_id, "❌ Invalid or expired redeem code.");
+  }
+}
+
+async function sendMessage(chat_id, text, reply_markup = null) {
+  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+  const body = {
+    chat_id,
+    text,
+    reply_markup
+  };
+
+  await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
   });
 }
 
-async function handleApiRequest(request) {
-  try {
-    const { url } = await request.json();
-    const videoId = extractYouTubeId(url);
-    
-    const apiUrl = `https://youtube-mp3-audio-video-downloader.p.rapidapi.com/get_m4a_download_link/${videoId}`;
-    const options = {
-      method: 'GET',
-      headers: {
-        'x-rapidapi-key': 'c7e2fc48e0msh077ba9d1e502feep11ddcbjsn4653c738de70',
-        'x-rapidapi-host': 'youtube-mp3-audio-video-downloader.p.rapidapi.com'
-      }
-    };
+async function editMessage(chat_id, message_id, text, reply_markup = null) {
+  const url = `https://api.telegram.org/bot${BOT_TOKEN}/editMessageText`;
+  const body = {
+    chat_id,
+    message_id,
+    text,
+    reply_markup
+  };
 
-    const response = await fetch(apiUrl, options);
-    const data = await response.json();
-    
-    return new Response(JSON.stringify(data), {
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
-  }
-}
-
-function extractYouTubeId(url) {
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-  const match = url.match(regExp);
-  return (match && match[2].length === 11) ? match[2] : null;
+  await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
 }
