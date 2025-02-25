@@ -1,218 +1,209 @@
-addEventListener("fetch", (event) => {
-  event.respondWith(handleRequest(event.request));
-});
+// cloudflare-worker.js
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    const path = url.pathname;
 
-async function handleRequest(request) {
-  const url = new URL(request.url);
-  const path = url.pathname;
-
-  // Telegram webhook endpoint
-  if (path.startsWith("/telegram/webhook")) {
-    if (request.method === "POST") {
-      try {
-        const telegramData = await request.json();
-        return await handleTelegramRequest(telegramData);
-      } catch (error) {
-        return new Response(JSON.stringify({ error: "Invalid Telegram data" }), {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-    }
-    return new Response("Telegram Webhook Ready", { status: 200 });
-  }
-
-  // Existing Pinterest API endpoint
-  if (path.startsWith("/api/download")) {
-    const pinUrl = url.searchParams.get("url");
-    if (!pinUrl || (!pinUrl.includes("pin.it") && !pinUrl.includes("in.pinterest.com"))) {
-      return new Response(JSON.stringify({ error: "Invalid Pinterest URL" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+    // Serve HTML page for root path
+    if (path === '/' && request.method === 'GET') {
+      return serveHtml();
     }
 
-    try {
-      const response = await fetch(pinUrl, {
-        headers: { "User-Agent": "Mozilla/5.0" },
-      });
-      const html = await response.text();
-      const mediaMatch = html.match(/"contentUrl":\s*"([^"]+\.(jpg|png|mp4))"/);
-      const mediaUrl = mediaMatch ? mediaMatch[1] : null;
-
-      if (!mediaUrl) {
-        return new Response(JSON.stringify({ error: "No media found" }), {
-          status: 404,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-
-      return new Response(JSON.stringify({ mediaUrl }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    } catch (error) {
-      return new Response(JSON.stringify({ error: "Failed to fetch media" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      });
+    // Handle API requests
+    if (path === '/api' && request.method === 'POST') {
+      return handleApiRequest(request);
     }
+
+    return new Response('Not Found', { status: 404 });
   }
+};
 
-  return new Response(generateHTML(), {
-    status: 200,
-    headers: { "Content-Type": "text/html" },
-  });
-}
-
-// Handle Telegram bot requests
-async function handleTelegramRequest(data) {
-  const TELEGRAM_API_TOKEN = "7286429810:AAGZ4Ban1Q5jh7DH_FKg_ROgMndXpwkpRO4"; // Replace with your bot token
-  const chatId = data.message?.chat?.id;
-  const text = data.message?.text;
-
-  if (!chatId || !text) {
-    return new Response("OK", { status: 200 });
-  }
-
-  // Simple command handler
-  if (text.startsWith("/start")) {
-    await sendTelegramMessage(TELEGRAM_API_TOKEN, chatId, "Welcome to New World Pinterest Downloader! Send me a Pinterest URL to download media.");
-  } else if (text.includes("pin.it") || text.includes("in.pinterest.com")) {
-    try {
-      const response = await fetch(`${self.location.origin}/api/download?url=${encodeURIComponent(text)}`);
-      const result = await response.json();
-
-      if (result.mediaUrl) {
-        await sendTelegramMessage(TELEGRAM_API_TOKEN, chatId, `Here's your media: ${result.mediaUrl}`);
-      } else {
-        await sendTelegramMessage(TELEGRAM_API_TOKEN, chatId, "Couldn't find media in that URL.");
-      }
-    } catch (error) {
-      await sendTelegramMessage(TELEGRAM_API_TOKEN, chatId, "Error processing your request.");
-    }
-  } else {
-    await sendTelegramMessage(TELEGRAM_API_TOKEN, chatId, "Please send a valid Pinterest URL.");
-  }
-
-  return new Response("OK", { status: 200 });
-}
-
-// Send message via Telegram API
-async function sendTelegramMessage(token, chatId, message) {
-  const telegramUrl = `https://api.telegram.org/bot${token}/sendMessage`;
-  await fetch(telegramUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: message,
-    }),
-  });
-}
-
-// Updated HTML with Telegram instructions
-function generateHTML() {
-  return `
+async function serveHtml() {
+  const html = `
     <!DOCTYPE html>
     <html lang="en">
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>New World Best Edit - Pinterest Media Downloader</title>
+      <title>YouTube Audio Downloader</title>
       <style>
-        body {
+        :root {
+          --primary: #ff4757;
+          --secondary: #2ed573;
+        }
+        
+        * {
+          box-sizing: border-box;
           margin: 0;
-          font-family: 'Arial', sans-serif;
-          background: linear-gradient(135deg, #1e3c72, #2a5298);
-          color: #fff;
-          display: flex;
-          justify-content: center;
-          align-items: center;
+          padding: 0;
+          font-family: 'Segoe UI', sans-serif;
+        }
+        
+        body {
           min-height: 100vh;
+          background: linear-gradient(135deg, #1e1e1e, #2d3436);
+          color: white;
+          padding: 2rem;
         }
+        
         .container {
-          background: rgba(255, 255, 255, 0.1);
-          padding: 40px;
-          border-radius: 15px;
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-          backdrop-filter: blur(10px);
+          max-width: 800px;
+          margin: 0 auto;
           text-align: center;
-          max-width: 600px;
         }
+        
         h1 {
-          font-size: 2.5em;
-          margin-bottom: 20px;
-          text-transform: uppercase;
-          letter-spacing: 2px;
+          margin-bottom: 2rem;
+          font-size: 2.5rem;
+          background: linear-gradient(45deg, var(--primary), var(--secondary));
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
         }
+        
+        .input-group {
+          display: flex;
+          gap: 1rem;
+          margin-bottom: 2rem;
+        }
+        
         input {
-          width: 80%;
-          padding: 15px;
-          margin: 10px 0;
+          flex: 1;
+          padding: 1rem;
           border: none;
-          border-radius: 25px;
-          background: rgba(255, 255, 255, 0.9);
-          font-size: 1em;
-          outline: none;
+          border-radius: 8px;
+          font-size: 1rem;
+          background: rgba(255,255,255,0.1);
+          color: white;
         }
+        
         button {
-          padding: 15px 30px;
+          padding: 1rem 2rem;
           border: none;
-          border-radius: 25px;
-          background: #ff6f61;
-          color: #fff;
-          font-size: 1em;
+          border-radius: 8px;
+          background: var(--primary);
+          color: white;
           cursor: pointer;
-          transition: background 0.3s ease;
+          transition: transform 0.2s;
         }
+        
         button:hover {
-          background: #ff8a75;
+          transform: translateY(-2px);
+          background: #ff6b81;
         }
+        
         #result {
-          margin-top: 20px;
-          font-size: 1.1em;
-          word-wrap: break-word;
+          padding: 2rem;
+          background: rgba(255,255,255,0.05);
+          border-radius: 12px;
+          text-align: left;
+          white-space: pre-wrap;
         }
-        .telegram-info {
-          margin-top: 20px;
-          font-size: 0.9em;
-          opacity: 0.9;
+        
+        .loader {
+          display: none;
+          border: 4px solid rgba(255,255,255,0.1);
+          border-top: 4px solid var(--secondary);
+          border-radius: 50%;
+          width: 40px;
+          height: 40px;
+          animation: spin 1s linear infinite;
+          margin: 2rem auto;
+        }
+        
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
       </style>
     </head>
     <body>
       <div class="container">
-        <h1>New World Best Edit</h1>
-        <p>Download Pinterest Media with Ease</p>
-        <input type="text" id="pinUrl" placeholder="Enter Pinterest URL (e.g., https://pin.it/xxx)">
-        <button onclick="downloadMedia()">Download</button>
-        <div id="result"></div>
-        <div class="telegram-info">
-          <p>Or use our Telegram bot! Search for @NewWorldDownloaderBot</p>
+        <h1>YouTube Audio Downloader</h1>
+        <div class="input-group">
+          <input type="text" id="videoUrl" placeholder="Enter YouTube URL...">
+          <button onclick="handleConvert()">Convert</button>
         </div>
+        <div class="loader" id="loader"></div>
+        <div id="result"></div>
       </div>
+      
       <script>
-        async function downloadMedia() {
-          const url = document.getElementById("pinUrl").value;
-          const resultDiv = document.getElementById("result");
-          resultDiv.innerHTML = "Fetching...";
-
+        async function handleConvert() {
+          const videoUrl = document.getElementById('videoUrl').value;
+          const loader = document.getElementById('loader');
+          const resultDiv = document.getElementById('result');
+          
+          if (!videoUrl) {
+            alert('Please enter a YouTube URL');
+            return;
+          }
+          
           try {
-            const response = await fetch(\`/api/download?url=\${encodeURIComponent(url)}\`);
+            loader.style.display = 'block';
+            resultDiv.textContent = '';
+            
+            const response = await fetch('/api', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ url: videoUrl })
+            });
+            
             const data = await response.json();
-
-            if (data.error) {
-              resultDiv.innerHTML = \`Error: \${data.error}\`;
-            } else {
-              resultDiv.innerHTML = \`Media URL: <a href="\${data.mediaUrl}" target="_blank">\${data.mediaUrl}</a>\`;
-            }
+            resultDiv.textContent = JSON.stringify(data, null, 2);
           } catch (error) {
-            resultDiv.innerHTML = "Error: Unable to fetch media.";
+            resultDiv.textContent = 'Error: ' + error.message;
+          } finally {
+            loader.style.display = 'none';
           }
         }
       </script>
     </body>
     </html>
   `;
+
+  return new Response(html, {
+    headers: { 'Content-Type': 'text/html' }
+  });
+}
+
+async function handleApiRequest(request) {
+  try {
+    const { url } = await request.json();
+    const videoId = extractYouTubeId(url);
+    
+    const apiUrl = `https://youtube-mp3-audio-video-downloader.p.rapidapi.com/get_m4a_download_link/${videoId}`;
+    const options = {
+      method: 'GET',
+      headers: {
+        'x-rapidapi-key': 'c7e2fc48e0msh077ba9d1e502feep11ddcbjsn4653c738de70',
+        'x-rapidapi-host': 'youtube-mp3-audio-video-downloader.p.rapidapi.com'
+      }
+    };
+
+    const response = await fetch(apiUrl, options);
+    const data = await response.json();
+    
+    return new Response(JSON.stringify(data), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  }
+}
+
+function extractYouTubeId(url) {
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : null;
 }
