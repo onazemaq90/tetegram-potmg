@@ -229,6 +229,31 @@ async function sendUserProfile(chatId, user) {
 
 async function sendPing(chatId) {
     const startTime = performance.now();
+    const pingMessage = await telegramApi('sendMessage', { chat_id: chatId, text: '<b>🏓 Pinging...</b>', parse_mode: 'HTML' });
+    if (!pingMessage || !pingMessage.result) return;
+
+    const endTime = performance.now();
+    const timeTakenMs = (endTime - startTime).toFixed(3);
+    const pingText = `
+<b>🏓 Ping Results 🔥</b>
+•❅─────✧❅✦❅✧─────❅•
+➻ <b>Response Time:</b> <code>${timeTakenMs} ms</code>
+➻ <b>Status:</b> ${timeTakenMs < 100 ? '⚡ Lightning Fast' : timeTakenMs < 300 ? '🌟 Good' : '🐢 Slow'}
+➻ <b>Bot Health:</b> Alive 🟢
+<i>Powered by xAI Tech</i>
+    `;
+    await telegramApi('editMessageText', {
+        chat_id: chatId,
+        message_id: pingMessage.result.message_id,
+        text: pingText,
+        parse_mode: 'HTML'
+    });
+}
+
+//
+async function handleBroadcast(chatId, user, text, replyToMessage) {
+    let broadcastMeasync function sendPing(chatId) {
+    const startTime = performance.now();
     
     // Send initial loading sticker
     const { message_id: tempMessageId } = await telegramApi('sendSticker', {
@@ -279,11 +304,7 @@ ${statusProgress}
             parse_mode: 'HTML'
         }
     });
-}
-
-//
-async function handleBroadcast(chatId, user, text, replyToMessage) {
-    let broadcastMessage;
+}ssage;
     if (replyToMessage) {
         broadcastMessage = replyToMessage.text || replyToMessage.caption || 'Media message';
     } else {
