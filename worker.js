@@ -230,20 +230,45 @@ async function sendUserProfile(chatId, user) {
 //
 async function sendPing(chatId) {
     const startTime = performance.now();
-    const pingMessage = await telegramApi('sendMessage', { chat_id: chatId, text: '<b>🏓 Pinging...</b>', parse_mode: 'HTML' });
-    if (!pingMessage || !pingMessage.result) return;
+    const pingMessage = await telegramApi('sendMessage', { 
+        chat_id: chatId, 
+        text: '<b>🏓 Pinging Server...</b>', 
+        parse_mode: 'HTML' 
+    });
+    
+    if (!pingMessage?.result) return;
 
     const endTime = performance.now();
     const timeTakenMs = (endTime - startTime).toFixed(3);
+    const botVersion = '1.0.0';
+    const serverPlatform = process.env.NODE_ENV || 'Production';
+
     const pingText = `
-<b><blockquote>🏓 Ping Results 🔥</blockquote>
+<b>🤖 XAI CORE NETWORK</b>
+<blockquote>📊 SYSTEM STATUS UPDATE</blockquote>
 
 •❅─────✧❅✦❅✧─────❅•
+➻ <b>Bot Name:</b> <code>xAI Assistant</code>
+➻ <b>Version:</b> <code>${botVersion}</code>
+➻ <b>Developer:</b> @xAI_Team
+
+•❅─────✧❅✦❅✧─────❅•
+<b>⚙ SERVER METRICS</b>
 ➻ <b>Response Time:</b> <code>${timeTakenMs} ms</code>
-➻ <b>Status:</b> ${timeTakenMs < 100 ? '⚡ Lightning Fast' : timeTakenMs < 300 ? '🌟 Good' : '🐢 Slow'}
-➻ <b>Bot Health:</b> Alive 🟢
-<i>Powered by xAI Tech</i>
+➻ <b>Platform:</b> ${serverPlatform === 'development' ? '🛠 Development' : '🚀 Production'}
+➻ <b>Status:</b> ${timeTakenMs < 100 ? '⚡ Optimal' : timeTakenMs < 300 ? '✅ Stable' : '⚠ High Load'}
+➻ <b>Health Check:</b> 🟢 Operational
+
+•❅─────✧❅✦❅✧─────❅•
+<b>📦 TECHNICAL SPECS</b>
+➻ <b>Library:</b> <code>Telegraf.js</code>
+➻ <b>Database:</b> <code>Redis v6.x</code>
+➻ <b>Middleware:</b> <code>Node v18.x</code>
+
+<pre>===========================</pre>
+<i>🔋 Systems Nominal | Maintained by xAI Technologies</i>
     `;
+
     await telegramApi('editMessageText', {
         chat_id: chatId,
         message_id: pingMessage.result.message_id,
