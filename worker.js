@@ -125,7 +125,7 @@ async function sendWelcomeMessage(chatId, user) {
     const buttons = [
         [{ text: '💻 Commands', callback_data: '/Commands' }],
         [{ text: '👨‍💻 DEV', url: 'https://t.me/Teleservices_Api' }],
-        [{ text: '🔄', callback_data: '/update' }]
+        [{ text: '◀️ Go Back', callback_data: '/goBack' }]
     ];
     const caption = `<b>👋 Welcome Back, ${user.first_name}!</b>\n\n🌟 Bot Status: Alive 🟢\n💞 Dev: @LakshayDied`;
 
@@ -227,6 +227,7 @@ async function sendUserProfile(chatId, user) {
     }
 }
 
+//
 async function sendPing(chatId) {
     const startTime = performance.now();
     const pingMessage = await telegramApi('sendMessage', { chat_id: chatId, text: '<b>🏓 Pinging...</b>', parse_mode: 'HTML' });
@@ -235,7 +236,8 @@ async function sendPing(chatId) {
     const endTime = performance.now();
     const timeTakenMs = (endTime - startTime).toFixed(3);
     const pingText = `
-<b>🏓 Ping Results 🔥</b>
+<b><blockquote>🏓 Ping Results 🔥</blockquote>
+
 •❅─────✧❅✦❅✧─────❅•
 ➻ <b>Response Time:</b> <code>${timeTakenMs} ms</code>
 ➻ <b>Status:</b> ${timeTakenMs < 100 ? '⚡ Lightning Fast' : timeTakenMs < 300 ? '🌟 Good' : '🐢 Slow'}
@@ -252,59 +254,7 @@ async function sendPing(chatId) {
 
 //
 async function handleBroadcast(chatId, user, text, replyToMessage) {
-    let broadcastMeasync function sendPing(chatId) {
-    const startTime = performance.now();
-    
-    // Send initial loading sticker
-    const { message_id: tempMessageId } = await telegramApi('sendSticker', {
-        chat_id: chatId,
-        sticker: 'CAACAgUAAxkBAAELZRtmBqHEvzJ7eM2rQ99O7EnW4U6rJAACvgADVpKxCti8u8J5ZUNUNAQ'
-    });
-
-    const endTime = performance.now();
-    const timeTakenMs = endTime - startTime;
-    
-    // Select dynamic sticker based on response time
-    const statusStickers = {
-        fast: 'CAACAgUAAxkBAAELZSFmBqK6oIM4xJhHRwABH5X0-3Kkq70AAhEDAALQlLFVv5sx_aJEnEM0BA',
-        good: 'CAACAgUAAxkBAAELZSVmBqLJjYr6K1iM3nGQ0Nq1xxnOZwACJgQAAv7xqFXMPDmrxdXG3TQE',
-        slow: 'CAACAgUAAxkBAAELZSdmBqLQxUjXq6cAAbR5Xm6v6JZ_4xkAAiUEAAL-8ahVzDz3wJ9n6vg0BA'
-    };
-
-    let statusKey = 'fast';
-    if (timeTakenMs >= 100) statusKey = 'good';
-    if (timeTakenMs >= 300) statusKey = 'slow';
-
-    // Create decorative status bar
-    const statusBar = '▰'.repeat(10).split('');
-    statusBar.fill('▱', Math.min(Math.floor(timeTakenMs/50), 10));
-    const statusProgress = statusBar.join('');
-
-    const formattedCaption = `
-<b>🚀 ⚡️ BOT PERFORMANCE METRICS ⚡️ 🚀</b>
-
-${statusProgress}
-⏳ <b>Response Time:</b> <code>${timeTakenMs.toFixed(3)}ms</code>
-📈 <b>Performance:</b> ${timeTakenMs < 100 ? '🔥 LUDICROUS SPEED' : timeTakenMs < 300 ? '🚀 OPTIMAL FLOW' : '🐢 SNAIL MODE'}
-
-🌐 <b>Server Status:</b> <code>🟢 OPERATIONAL</code>
-📊 <b>Uptime:</b> <code>${(process.uptime()/3600).toFixed(1)} hours</code>
-
-<i>Powered by Next-Gen AI Infrastructure</i>
-    `.trim().replace(/^ +/gm, '');
-
-    // Edit message with results
-    await telegramApi('editMessageMedia', {
-        chat_id: chatId,
-        message_id: tempMessageId,
-        media: {
-            type: 'sticker',
-            media: statusStickers[statusKey],
-            caption: formattedCaption,
-            parse_mode: 'HTML'
-        }
-    });
-}ssage;
+    let broadcastMessage;
     if (replyToMessage) {
         broadcastMessage = replyToMessage.text || replyToMessage.caption || 'Media message';
     } else {
@@ -534,4 +484,4 @@ async function handleBan(chatId, user, replyToMessage, messageId) {
 addEventListener('fetch', event => {
     event.respondWith(handleRequest(event.request));
 });
-          
+        
