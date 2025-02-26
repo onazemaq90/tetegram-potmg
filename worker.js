@@ -229,26 +229,38 @@ async function sendUserProfile(chatId, user) {
 
 async function sendPing(chatId) {
     const startTime = performance.now();
-    const pingMessage = await telegramApi('sendMessage', { chat_id: chatId, text: '<b>🏓 Pinging...</b>', parse_mode: 'HTML' });
-    if (!pingMessage || !pingMessage.result) return;
+    
+    // First send a temporary ping message
+    const pingMessage = await telegramApi('sendMessage', {
+        chat_id: chatId,
+        text: '<b>🏓 Pinging...</b>',
+        parse_mode: 'HTML'
+    });
+    
+    if (!pingMessage?.result) return;
 
     const endTime = performance.now();
     const timeTakenMs = (endTime - startTime).toFixed(3);
-    const photoUrls = "https://t.me/kajal_developer/59";
+    const photoUrl = "https://t.me/kajal_developer/59";
+    
     const caption = `
 <b>🏓 Ping Results 🔥</b>
 •❅─────✧❅✦❅✧─────❅•
 ➻ <b>Response Time:</b> <code>${timeTakenMs} ms</code>
 ➻ <b>Status:</b> ${timeTakenMs < 100 ? '⚡ Lightning Fast' : timeTakenMs < 300 ? '🌟 Good' : '🐢 Slow'}
 ➻ <b>Bot Health:</b> Alive 🟢
-<i>Powered by xAI Tech</i>
-    `;
-    await telegramApi('sendPhoto', {
+<i>Powered by xAI Tech</i>`.replace(/\n\s+/g, '\n').trim();
+
+    // Edit the original message to add the photo and results
+    await telegramApi('editMessageMedia', {
         chat_id: chatId,
-        photo: photoUrls,
-        caption: caption,
         message_id: pingMessage.result.message_id,
-        parse_mode: 'HTML'
+        media: {
+            type: 'photo',
+            media: photoUrl,
+            caption: caption,
+            parse_mode: 'HTML'
+        }
     });
 }
 
