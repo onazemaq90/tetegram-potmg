@@ -230,59 +230,52 @@ async function sendUserProfile(chatId, user) {
 async function sendPing(chatId) {
     const startTime = performance.now();
     
-    // Anime-style loading message
-    const loadingFrames = ['🌀', '🌪️', '✨'];
-    let frameIndex = 0;
-    
-    const pingMessage = await telegramApi('sendMessage', {
+    // Send initial loading sticker
+    const { message_id: tempMessageId } = await telegramApi('sendSticker', {
         chat_id: chatId,
-        text: `<b>${loadingFrames[frameIndex]} Initializing Chakra...</b>`,
-        parse_mode: 'HTML'
+        sticker: 'CAACAgUAAxkBAAELZRtmBqHEvzJ7eM2rQ99O7EnW4U6rJAACvgADVpKxCti8u8J5ZUNUNAQ'
     });
-    
-    if (!pingMessage?.result) return;
-
-    // Animation loop
-    const loadingInterval = setInterval(async () => {
-        frameIndex = (frameIndex + 1) % loadingFrames.length;
-        await telegramApi('editMessageText', {
-            chat_id: chatId,
-            message_id: pingMessage.result.message_id,
-            text: `<b>${loadingFrames[frameIndex]} Powering Rasengan...</b>`,
-            parse_mode: 'HTML'
-        });
-    }, 500);
 
     const endTime = performance.now();
-    const timeTakenMs = (endTime - startTime).toFixed(3);
-    clearInterval(loadingInterval);
+    const timeTakenMs = endTime - startTime;
+    
+    // Select dynamic sticker based on response time
+    const statusStickers = {
+        fast: 'CAACAgUAAxkBAAELZSFmBqK6oIM4xJhHRwABH5X0-3Kkq70AAhEDAALQlLFVv5sx_aJEnEM0BA',
+        good: 'CAACAgUAAxkBAAELZSVmBqLJjYr6K1iM3nGQ0Nq1xxnOZwACJgQAAv7xqFXMPDmrxdXG3TQE',
+        slow: 'CAACAgUAAxkBAAELZSdmBqLQxUjXq6cAAbR5Xm6v6JZ_4xkAAiUEAAL-8ahVzDz3wJ9n6vg0BA'
+    };
 
-    // Anime-style result formatting
-    const photoUrl = "https://i.imgur.com/ANIME_ARTWORK.jpg";  // Replace with actual anime image URL
-    const speedStatus = timeTakenMs < 100 ? '🏃♂️ Ultra Instinct' : 
-                      timeTakenMs < 300 ? '🚀 Bankai Released' : 
-                      '🐌 Slug Sage Mode';
+    let statusKey = 'fast';
+    if (timeTakenMs >= 100) statusKey = 'good';
+    if (timeTakenMs >= 300) statusKey = 'slow';
 
-    const caption = `
-<b>🔥 𝔄𝔫𝔦𝔪𝔢 𝔓𝔦𝔫𝔤 𝔖𝔱𝔞𝔱𝔱�𝔭 𝔖�𝔔𝔈𝔖𝔖 🔥</b>
+    // Create decorative status bar
+    const statusBar = '▰'.repeat(10).split('');
+    statusBar.fill('▱', Math.min(Math.floor(timeTakenMs/50), 10));
+    const statusProgress = statusBar.join('');
 
-▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰
-✧  𝚁𝙴𝚂𝙿𝙾𝙽𝚂𝙴 𝚃𝙸𝙼𝙴 ➺ <code>${timeTakenMs} ms</code>
-✧  𝚂𝚃𝙰𝚃𝚄𝚂 ➺ ${speedStatus}
-✧  𝙱𝙾𝚃 𝚅𝙴𝚁𝚂𝙸𝙾𝙽 ➺ 𝙰𝙺𝙰𝚃𝚂𝚄𝙺𝙸 v3.14
+    const formattedCaption = `
+<b>🚀 ⚡️ BOT PERFORMANCE METRICS ⚡️ 🚀</b>
 
-✦⋆⋆✦⋆⋆✦⋆⋆✦⋆⋆✦⋆⋆✦
-「 𝙿𝚘𝚠𝚎𝚛𝚎𝚍 𝚋𝚢 𝚄𝚣𝚞𝚖𝚊𝚔𝚒 𝚃𝚎𝚌𝚑𝚗𝚘𝚕𝚘𝚐𝚢 」 
-    `.trim();
+${statusProgress}
+⏳ <b>Response Time:</b> <code>${timeTakenMs.toFixed(3)}ms</code>
+📈 <b>Performance:</b> ${timeTakenMs < 100 ? '🔥 LUDICROUS SPEED' : timeTakenMs < 300 ? '🚀 OPTIMAL FLOW' : '🐢 SNAIL MODE'}
 
-    // Edit with anime-style media card
+🌐 <b>Server Status:</b> <code>🟢 OPERATIONAL</code>
+📊 <b>Uptime:</b> <code>${(process.uptime()/3600).toFixed(1)} hours</code>
+
+<i>Powered by Next-Gen AI Infrastructure</i>
+    `.trim().replace(/^ +/gm, '');
+
+    // Edit message with results
     await telegramApi('editMessageMedia', {
         chat_id: chatId,
-        message_id: pingMessage.result.message_id,
+        message_id: tempMessageId,
         media: {
-            type: 'photo',
-            media: photoUrl,
-            caption: caption,
+            type: 'sticker',
+            media: statusStickers[statusKey],
+            caption: formattedCaption,
             parse_mode: 'HTML'
         }
     });
