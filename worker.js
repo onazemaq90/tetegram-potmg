@@ -247,19 +247,19 @@ async function sendPing(chatId) {
 <b>🤖 XAI CORE NETWORK</b>
 <blockquote>📊 SYSTEM STATUS UPDATE</blockquote>
 
-•❅─────✧❅✦❅✧─────❅•
+<blockquote>•❅─────✧❅✦❅✧─────❅•</blockquote>
 ➻ <b>Bot Name:</b> <code>xAI Assistant</code>
 ➻ <b>Version:</b> <code>${botVersion}</code>
 ➻ <b>Developer:</b> @xAI_Team
 
-•❅─────✧❅✦❅✧─────❅•
+<blockquote>•❅─────✧❅✦❅✧─────❅•</blockquote>
 <b>⚙ SERVER METRICS</b>
 ➻ <b>Response Time:</b> <code>${timeTakenMs} ms</code>
 ➻ <b>Platform:</b> ${serverPlatform === 'development' ? '🛠 Development' : '🚀 Production'}
 ➻ <b>Status:</b> ${timeTakenMs < 100 ? '⚡ Optimal' : timeTakenMs < 300 ? '✅ Stable' : '⚠ High Load'}
 ➻ <b>Health Check:</b> 🟢 Operational
 
-•❅─────✧❅✦❅✧─────❅•
+<blockquote>•❅─────✧❅✦❅✧─────❅•</blockquote>
 <b>📦 TECHNICAL SPECS</b>
 ➻ <b>Library:</b> <code>Telegraf.js</code>
 ➻ <b>Database:</b> <code>Redis v6.x</code>
