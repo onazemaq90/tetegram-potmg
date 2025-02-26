@@ -163,6 +163,7 @@ async function sendCommandsMenu(chatId) {
 }
 
 async function sendAboutMessage(chatId, user) {
+    const photoUrl = "https://t.me/kajal_developer/59";
     const caption = `<b><blockquote>⍟───[ MY ᴅᴇᴛᴀɪʟꜱ ]───⍟</blockquote>
 
 ‣ ᴍʏ ɴᴀᴍᴇ : <a href="https://t.me/${user.username}">${user.first_name}</a>
