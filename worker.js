@@ -234,7 +234,7 @@ async function sendPing(chatId) {
 
     const endTime = performance.now();
     const timeTakenMs = (endTime - startTime).toFixed(3);
-    const videoUrl = "https://t.me/kajal_developer/59";
+    const photoUrls = "https://t.me/kajal_developer/59";
     const caption = `
 <b>🏓 Ping Results 🔥</b>
 •❅─────✧❅✦❅✧─────❅•
