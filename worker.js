@@ -163,15 +163,25 @@ async function sendCommandsMenu(chatId) {
 }
 
 async function sendAboutMessage(chatId, user) {
-    const aboutMessage = `<b><blockquote>⍟───[ MY DETAILS ]───⍟</blockquote></b>
-‣ Name: <a href="https://t.me/${user.username || ''}">${user.first_name}</a>
-‣ Best Friend: <a href="tg://settings">This Person</a>
-‣ Developer: <a href="https://t.me/kingvj01">Tech VJ</a>
-‣ Build Status: <b>v [Stable]</b>`;
+    const aboutMessage = `<b><blockquote>⍟───[ MY ᴅᴇᴛᴀɪʟꜱ ]───⍟</blockquote>
 
-    await telegramApi('sendMessage', { chat_id: chatId, text: aboutMessage, parse_mode: 'HTML' });
+‣ ᴍʏ ɴᴀᴍᴇ : <a href="https://t.me/${user.username}">${user.first_name}</a>
+‣ ᴍʏ ʙᴇsᴛ ғʀɪᴇɴᴅ : <a href='tg://settings'>ᴛʜɪs ᴘᴇʀsᴏɴ</a> 
+‣ �ᴅᴇᴠᴇʟᴏᴘᴇʀ : <a href='https://t.me/kingvj01'>ᴛᴇᴄʜ ᴠᴊ</a> 
+‣ ʟɪʙʀᴀʀʏ : <a href='https://telegrafjs.org'>ᴛᴇʟᴇɢʀᴀғ (v4.12)</a> 
+‣ ʟᴀɴɢᴜᴀɢᴇ : <a href='https://nodejs.org'>ɴᴏᴅᴇ.ᴊs v20</a> 
+‣ ᴅᴀᴛᴀ ʙᴀsᴇ : <a href='https://mongodb.com'>ᴍᴏɴɢᴏᴅʙ</a> 
+‣ ʙᴏᴛ sᴇʀᴠᴇʀ : <a href='https://heroku.com'>ʜᴇʀᴏᴋᴜ</a> 
+‣ ʙᴜɪʟᴅ sᴛᴀᴛᴜs : ᴠ2.5 [sᴛᴀʙʟᴇ]</b>`;
+
+    await telegramApi('sendMessage', { 
+        chat_id: chatId, 
+        text: aboutMessage, 
+        parse_mode: 'HTML',
+        disable_web_page_preview: true  // Added to prevent link previews
+    });
 }
-
+        
 async function sendDefaultMessage(chatId) {
     await telegramApi('sendMessage', {
         chat_id: chatId,
