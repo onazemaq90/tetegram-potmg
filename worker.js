@@ -233,7 +233,7 @@ async function sendPing(chatId) {
     // First send a temporary ping message
     const pingMessage = await telegramApi('sendMessage', {
         chat_id: chatId,
-        text: '<b>🏓 Pinging...</b>',
+        text: '<b>💫</b>',
         parse_mode: 'HTML'
     });
     
@@ -248,7 +248,7 @@ async function sendPing(chatId) {
 •❅─────✧❅✦❅✧─────❅•
 ➻ <b>Response Time:</b> <code>${timeTakenMs} ms</code>
 ➻ <b>Status:</b> ${timeTakenMs < 100 ? '⚡ Lightning Fast' : timeTakenMs < 300 ? '🌟 Good' : '🐢 Slow'}
-➻ <b>Bot Health:</b> Alive 🟢
+➻ <b>Bot Health:</b> <code>Alive 🟢</code>
 <i>Powered by xAI Tech</i>`.replace(/\n\s+/g, '\n').trim();
 
     // Edit the original message to add the photo and results
