@@ -163,7 +163,7 @@ async function sendCommandsMenu(chatId) {
 }
 
 async function sendAboutMessage(chatId, user) {
-    const aboutMessage = `<b><blockquote>⍟───[ MY ᴅᴇᴛᴀɪʟꜱ ]───⍟</blockquote>
+    const caption = `<b><blockquote>⍟───[ MY ᴅᴇᴛᴀɪʟꜱ ]───⍟</blockquote>
 
 ‣ ᴍʏ ɴᴀᴍᴇ : <a href="https://t.me/${user.username}">${user.first_name}</a>
 ‣ ᴍʏ ʙᴇsᴛ ғʀɪᴇɴᴅ : <a href='tg://settings'>ᴛʜɪs ᴘᴇʀsᴏɴ</a> 
@@ -174,9 +174,10 @@ async function sendAboutMessage(chatId, user) {
 ‣ ʙᴏᴛ sᴇʀᴠᴇʀ : <a href='https://heroku.com'>ʜᴇʀᴏᴋᴜ</a> 
 ‣ ʙᴜɪʟᴅ sᴛᴀᴛᴜs : ᴠ2.5 [sᴛᴀʙʟᴇ]</b>`;
 
-    await telegramApi('sendMessage', { 
-        chat_id: chatId, 
-        text: aboutMessage, 
+    await telegramApi('sendPhoto', { 
+        chat_id: chatId,
+        photo: photoUrl,
+        caption: caption,
         parse_mode: 'HTML',
         disable_web_page_preview: true  // Added to prevent link previews
     });
