@@ -243,7 +243,7 @@ async function sendPing(chatId) {
 ➻ <b>Bot Health:</b> Alive 🟢
 <i>Powered by xAI Tech</i>
     `;
-    await telegramApi('editMessageText', {
+    await telegramApi('sendPhoto ', {
         chat_id: chatId,
         message_id: pingMessage.result.message_id,
         caption: caption,
