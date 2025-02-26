@@ -125,7 +125,7 @@ async function sendWelcomeMessage(chatId, user) {
     const buttons = [
         [{ text: '💻 Commands', callback_data: '/Commands' }],
         [{ text: '👨‍💻 DEV', url: 'https://t.me/Teleservices_Api' }],
-        [{ text: '◀️ Go Back', callback_data: '/goBack' }]
+        [{ text: '🔄', callback_data: '/update' }]
     ];
     const caption = `<b>👋 Welcome Back, ${user.first_name}!</b>\n\n🌟 Bot Status: Alive 🟢\n💞 Dev: @LakshayDied`;
 
@@ -234,7 +234,8 @@ async function sendPing(chatId) {
 
     const endTime = performance.now();
     const timeTakenMs = (endTime - startTime).toFixed(3);
-    const pingText = `
+    const videoUrl = "https://t.me/kajal_developer/59";
+    const caption = `
 <b>🏓 Ping Results 🔥</b>
 •❅─────✧❅✦❅✧─────❅•
 ➻ <b>Response Time:</b> <code>${timeTakenMs} ms</code>
@@ -245,7 +246,8 @@ async function sendPing(chatId) {
     await telegramApi('editMessageText', {
         chat_id: chatId,
         message_id: pingMessage.result.message_id,
-        text: pingText,
+        caption: caption,
+        photo: photoUrls,
         parse_mode: 'HTML'
     });
 }
