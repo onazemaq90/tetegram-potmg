@@ -228,41 +228,54 @@ async function sendUserProfile(chatId, user) {
 }
 
 async function sendPing(chatId) {
-    const animationFrames = ['💫', '✨', '⭐', '🌟'];
     const startTime = performance.now();
     
-    // Send initial animated ping message
-    let pingMessage;
-    for (const frame of animationFrames) {
-        pingMessage = await telegramApi('sendMessage', {
+    // Anime-style loading message
+    const loadingFrames = ['🌀', '🌪️', '✨'];
+    let frameIndex = 0;
+    
+    const pingMessage = await telegramApi('sendMessage', {
+        chat_id: chatId,
+        text: `<b>${loadingFrames[frameIndex]} Initializing Chakra...</b>`,
+        parse_mode: 'HTML'
+    });
+    
+    if (!pingMessage?.result) return;
+
+    // Animation loop
+    const loadingInterval = setInterval(async () => {
+        frameIndex = (frameIndex + 1) % loadingFrames.length;
+        await telegramApi('editMessageText', {
             chat_id: chatId,
-            text: `<b>${frame}</b>`,
+            message_id: pingMessage.result.message_id,
+            text: `<b>${loadingFrames[frameIndex]} Powering Rasengan...</b>`,
             parse_mode: 'HTML'
         });
-        await new Promise(resolve => setTimeout(resolve, 100));
-    }
-
-    if (!pingMessage?.result) return;
+    }, 500);
 
     const endTime = performance.now();
     const timeTakenMs = (endTime - startTime).toFixed(3);
-    const photoUrl = "https://t.me/kajal_developer/59";
-    
+    clearInterval(loadingInterval);
+
+    // Anime-style result formatting
+    const photoUrl = "https://i.imgur.com/ANIME_ARTWORK.jpg";  // Replace with actual anime image URL
+    const speedStatus = timeTakenMs < 100 ? '🏃♂️ Ultra Instinct' : 
+                      timeTakenMs < 300 ? '🚀 Bankai Released' : 
+                      '🐌 Slug Sage Mode';
+
     const caption = `
-<b>🎯 𝐏𝐢𝐧𝐠 𝐀𝐧𝐚𝐥𝐲𝐬𝐢𝐬 🚀</b>
+<b>🔥 𝔄𝔫𝔦𝔪𝔢 𝔓𝔦𝔫𝔤 𝔖𝔱𝔞𝔱𝔱�𝔭 𝔖�𝔔𝔈𝔖𝔖 🔥</b>
 
-▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰
-    
-🕒 <b>𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞 𝐓𝐢𝐦𝐞:</b> <code>${timeTakenMs} 𝐦𝐬</code>
-📈 <b>𝐏𝐞𝐫𝐟𝐨𝐫𝐦𝐚𝐧𝐜𝐞:</b> ${getPerformanceIcon(timeTakenMs)}
-⚡ <b>𝐒𝐭𝐚𝐭𝐮𝐬:</b> ${getStatusText(timeTakenMs)}
-🟢 <b>𝐁𝐨𝐭 𝐒𝐭𝐚𝐭𝐮𝐬:</b> <ins>𝐎𝐩𝐞𝐫𝐚𝐭𝐢𝐨𝐧𝐚𝐥</ins>
+▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰
+✧  𝚁𝙴𝚂𝙿𝙾𝙽𝚂𝙴 𝚃𝙸𝙼𝙴 ➺ <code>${timeTakenMs} ms</code>
+✧  𝚂𝚃𝙰𝚃𝚄𝚂 ➺ ${speedStatus}
+✧  𝙱𝙾𝚃 𝚅𝙴𝚁𝚂𝙸𝙾𝙽 ➺ 𝙰𝙺𝙰𝚃𝚂𝚄𝙺𝙸 v3.14
 
-▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰
+✦⋆⋆✦⋆⋆✦⋆⋆✦⋆⋆✦⋆⋆✦
+「 𝙿𝚘𝚠𝚎𝚛𝚎𝚍 𝚋𝚢 𝚄𝚣𝚞𝚖𝚊𝚔𝚒 𝚃𝚎𝚌𝚑𝚗𝚘𝚕𝚘𝚐𝚢 」 
+    `.trim();
 
-<i>𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗯𝘆 𝗫𝗔𝗜 𝗧𝗲𝗰𝗵𝗻𝗼𝗹𝗼𝗴𝗶𝗲𝘀</i>`.trim();
-
-    // Edit with final polished design
+    // Edit with anime-style media card
     await telegramApi('editMessageMedia', {
         chat_id: chatId,
         message_id: pingMessage.result.message_id,
@@ -273,31 +286,9 @@ async function sendPing(chatId) {
             parse_mode: 'HTML'
         }
     });
-
-    // Add status emoji reaction
-    await telegramApi('setMessageReaction', {
-        chat_id: chatId,
-        message_id: pingMessage.result.message_id,
-        reaction: [{
-            type: 'emoji',
-            emoji: timeTakenMs < 100 ? '🚀' : timeTakenMs < 300 ? '⏱️' : '📉'
-        }]
-    });
 }
 
-function getStatusText(time) {
-    if (time < 100) return '𝐋𝐢𝐠𝐡𝐭𝐧𝐢𝐧𝐠 𝐒𝐩𝐞𝐞𝐝 🚀';
-    if (time < 300) return '𝐎𝐩𝐭𝐢𝐦𝐚𝐥 𝐏𝐞𝐫𝐟𝐨𝐫𝐦𝐚𝐧𝐜𝐞 ⚡';
-    return '𝐑𝐞𝐬𝐨𝐮𝐫𝐜𝐞 𝐂𝐨𝐧𝐬𝐭𝐫𝐚𝐢𝐧𝐭𝐬 🐢';
-}
-
-function getPerformanceIcon(time) {
-    if (time < 100) return '🎯';
-    if (time < 200) return '🏅';
-    if (time < 300) return '🎖️';
-    return '⚠️';
-}
-
+//
 async function handleBroadcast(chatId, user, text, replyToMessage) {
     let broadcastMessage;
     if (replyToMessage) {
