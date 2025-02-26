@@ -228,15 +228,20 @@ async function sendUserProfile(chatId, user) {
 }
 
 async function sendPing(chatId) {
+    const animationFrames = ['💫', '✨', '⭐', '🌟'];
     const startTime = performance.now();
     
-    // First send a temporary ping message
-    const pingMessage = await telegramApi('sendMessage', {
-        chat_id: chatId,
-        text: '<b>💫</b>',
-        parse_mode: 'HTML'
-    });
-    
+    // Send initial animated ping message
+    let pingMessage;
+    for (const frame of animationFrames) {
+        pingMessage = await telegramApi('sendMessage', {
+            chat_id: chatId,
+            text: `<b>${frame}</b>`,
+            parse_mode: 'HTML'
+        });
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
     if (!pingMessage?.result) return;
 
     const endTime = performance.now();
@@ -244,15 +249,20 @@ async function sendPing(chatId) {
     const photoUrl = "https://t.me/kajal_developer/59";
     
     const caption = `
-<b><blockquote>🏓 Ping Results 🔥</blockquote>
+<b>🎯 𝐏𝐢𝐧𝐠 𝐀𝐧𝐚𝐥𝐲𝐬𝐢𝐬 🚀</b>
 
-•❅─────✧❅✦❅✧─────❅•
-➻ <b>Response Time:</b> <code>${timeTakenMs} ms</code>
-➻ <b>Status:</b> ${timeTakenMs < 100 ? '⚡ Lightning Fast' : timeTakenMs < 300 ? '🌟 Good' : '🐢 Slow'}
-➻ <b>Bot Health:</b> <code>Alive 🟢</code>
-<i>Powered by xAI Tech</i>`.replace(/\n\s+/g, '\n').trim();
+▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰
+    
+🕒 <b>𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞 𝐓𝐢𝐦𝐞:</b> <code>${timeTakenMs} 𝐦𝐬</code>
+📈 <b>𝐏𝐞𝐫𝐟𝐨𝐫𝐦𝐚𝐧𝐜𝐞:</b> ${getPerformanceIcon(timeTakenMs)}
+⚡ <b>𝐒𝐭𝐚𝐭𝐮𝐬:</b> ${getStatusText(timeTakenMs)}
+🟢 <b>𝐁𝐨𝐭 𝐒𝐭𝐚𝐭𝐮𝐬:</b> <ins>𝐎𝐩𝐞𝐫𝐚𝐭𝐢𝐨𝐧𝐚𝐥</ins>
 
-    // Edit the original message to add the photo and results
+▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰
+
+<i>𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗯𝘆 𝗫𝗔𝗜 𝗧𝗲𝗰𝗵𝗻𝗼𝗹𝗼𝗴𝗶𝗲𝘀</i>`.trim();
+
+    // Edit with final polished design
     await telegramApi('editMessageMedia', {
         chat_id: chatId,
         message_id: pingMessage.result.message_id,
@@ -263,6 +273,29 @@ async function sendPing(chatId) {
             parse_mode: 'HTML'
         }
     });
+
+    // Add status emoji reaction
+    await telegramApi('setMessageReaction', {
+        chat_id: chatId,
+        message_id: pingMessage.result.message_id,
+        reaction: [{
+            type: 'emoji',
+            emoji: timeTakenMs < 100 ? '🚀' : timeTakenMs < 300 ? '⏱️' : '📉'
+        }]
+    });
+}
+
+function getStatusText(time) {
+    if (time < 100) return '𝐋𝐢𝐠𝐡𝐭𝐧𝐢𝐧𝐠 𝐒𝐩𝐞𝐞𝐝 🚀';
+    if (time < 300) return '𝐎𝐩𝐭𝐢𝐦𝐚𝐥 𝐏𝐞𝐫𝐟𝐨𝐫𝐦𝐚𝐧𝐜𝐞 ⚡';
+    return '𝐑𝐞𝐬𝐨𝐮𝐫𝐜𝐞 𝐂𝐨𝐧𝐬𝐭𝐫𝐚𝐢𝐧𝐭𝐬 🐢';
+}
+
+function getPerformanceIcon(time) {
+    if (time < 100) return '🎯';
+    if (time < 200) return '🏅';
+    if (time < 300) return '🎖️';
+    return '⚠️';
 }
 
 async function handleBroadcast(chatId, user, text, replyToMessage) {
