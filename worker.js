@@ -244,7 +244,8 @@ async function sendPing(chatId) {
     const photoUrl = "https://t.me/kajal_developer/59";
     
     const caption = `
-<b>🏓 Ping Results 🔥</b>
+<b><blockquote>🏓 Ping Results 🔥</blockquote>
+
 •❅─────✧❅✦❅✧─────❅•
 ➻ <b>Response Time:</b> <code>${timeTakenMs} ms</code>
 ➻ <b>Status:</b> ${timeTakenMs < 100 ? '⚡ Lightning Fast' : timeTakenMs < 300 ? '🌟 Good' : '🐢 Slow'}
