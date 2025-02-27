@@ -1,5 +1,5 @@
 // Environment variables (add these in Cloudflare Workers settings)
-const TELEGRAM_BOT_TOKEN = '7286429810:AAGZ4Ban1Q5jh7DH_FKg_ROgMndXpwkpRO4'; // Replace with your bot token
+const TELEGRAM_BOT_TOKEN = '7544054473:AAH38dih8OM-ii2_rSp-wJq5rjo2G0upE10'; // Replace with your bot token
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
 
 // Handle incoming requests
@@ -35,10 +35,11 @@ async function handleRequest(request) {
       return sendTelegramMessage(chatId, 'Please provide a valid URL after /download');
     }
 
-    // Send initial processing message
+    // Send initial processing status
     const platform = url.includes('pinterest') ? 'Pinterest' : url.includes('tiktok') ? 'TikTok' : 'Unknown';
-    const statusMessage = formatStatusMessage('Media', platform, 0, 'N/A', 'Processing...');
-    await sendTelegramMessage(chatId, statusMessage);
+    const fileType = platform === 'Pinterest' ? 'media' : 'video.mp4'; // Simplified assumption
+    const statusMessage = `╭━━━━❰  Processing... ❱━➣\n┣⪼ 🗂️ : ${url} | ${fileType}\n┣⪼ ⏳️ : 0%\n┣⪼ 🚀 : 0 KB/s\n┣⪼ ⏱️ : Processing\n╰━━━━━━━━━━━━━━━➣`;
+    const statusResponse = await sendTelegramMessage(chatId, statusMessage);
 
     try {
       let mediaUrl;
@@ -51,6 +52,10 @@ async function handleRequest(request) {
       }
 
       if (mediaUrl) {
+        const finalFileType = mediaUrl.endsWith('.mp4') || mediaUrl.endsWith('.mov') ? 'video.mp4' : 'image.jpg';
+        const completedMessage = `╭━━━━❰  Completed! ❱━➣\n┣⪼ 🗂️ : ${url} | ${finalFileType}\n┣⪼ ⏳️ : 100%\n┣⪼ 🚀 : N/A\n┣⪼ ⏱️ : Done\n╰━━━━━━━━━━━━━━━➣`;
+        await sendTelegramMessage(chatId, completedMessage);
+
         if (mediaUrl.endsWith('.mp4') || mediaUrl.endsWith('.mov')) {
           await sendTelegramVideo(chatId, mediaUrl);
         } else {
@@ -65,13 +70,7 @@ async function handleRequest(request) {
     }
   }
 
-  // Default response for unrecognized commands
-  return sendTelegramMessage(chatId, 'Use /start for instructions or /download <Pinterest or TikTok URL> to download media]');
-}
-
-// Format the status message with the provided template
-function formatStatusMessage(file1, file2, percent, speed, time) {
-  return `╭━━━━❰  Processing... ❱━➣\n┣⪼ 🗂️ : ${file1} | ${file2}\n┣⪼ ⏳️ : ${percent}%\n┣⪼ 🚀 : ${speed}/s\n┣⪼ ⏱️ : ${time}\n╰━━━━━━━━━━━━━━━➣`;
+  return sendTelegramMessage(chatId, 'Use /start for instructions or /download <Pinterest or TikTok URL> to download media.');
 }
 
 // Fetch media from Pinterest
