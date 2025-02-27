@@ -81,9 +81,6 @@ async function handleUpdate(update) {
                 case '/ping':
                     await sendPing(chatId);
                     break;
-                case '/sx':
-                    await sendVbMenu(chatId);
-                    break;
                 case '/broadcast':
                     if (!admins.has(user.id.toString()) || !admins.get(user.id.toString()).canBroadcast) {
                         await telegramApi('sendMessage', { chat_id: chatId, text: '<b>⚠️ Access Denied: Only admins with broadcast privileges can use this.</b>', parse_mode: 'HTML' });
@@ -520,30 +517,6 @@ async function handleBan(chatId, user, replyToMessage, messageId) {
     await deleteMessage(chatId, messageId);
 }
 
-//
-async function sendVbMenu(chatId) {
-    const keyboard = {
-        keyboard: [
-            ["🌺 CP", "🇮🇳 Desi"],
-            ["🇬🇧 Forener", "🐕‍🦺 Animal"],
-            ["💕 Webseries", "💑 Gay Cp"],
-            ["💸 𝘽𝙐𝙔 𝙑𝙄𝙋 💸"]
-        ],
-        resize_keyboard: true,
-        one_time_keyboard: true
-    };
-
-    await fetch(`${BASE_URL}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            chat_id: chatId,
-            text: "🤗 Welcome to Lx Bot 🌺",
-            reply_markup: keyboard,
-            protect_content: true
-        })
-    });
-}
 // Event listener for fetch
 addEventListener('fetch', event => {
     event.respondWith(handleRequest(event.request));
