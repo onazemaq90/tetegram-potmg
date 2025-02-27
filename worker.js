@@ -1,5 +1,5 @@
 // Environment variables (add these in Cloudflare Workers settings)
-const TELEGRAM_BOT_TOKEN = '7544054473:AAH38dih8OM-ii2_rSp-wJq5rjo2G0upE10'; // Replace with your bot token
+const TELEGRAM_BOT_TOKEN = '7286429810:AAGZ4Ban1Q5jh7DH_FKg_ROgMndXpwkpRO4'; // Replace with your bot token
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
 
 // Handle incoming requests
