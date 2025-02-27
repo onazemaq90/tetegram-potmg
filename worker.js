@@ -256,7 +256,6 @@ async function sendPing(chatId) {
     const serverPlatform = process.env.NODE_ENV || 'Production';
 
     const pingText = `
-<b>🤖 XAI CORE NETWORK</b>
 <blockquote>📊 SYSTEM STATUS UPDATE</blockquote>
 
 <blockquote>•❅─────✧❅✦❅✧─────❅•</blockquote>
