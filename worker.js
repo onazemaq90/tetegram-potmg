@@ -118,24 +118,50 @@ async function handleUpdate(update) {
 
 // Message sending functions
 async function sendWelcomeMessage(chatId, user) {
-    const settings = groupSettings.get(chatId.toString()) || { welcomeEnabled: true, language: 'en' };
-    if (chatId < 0 && !settings.welcomeEnabled) return;
+    try {
+        const settings = groupSettings.get(chatId.toString()) || { 
+            welcomeEnabled: true, 
+            language: 'en' 
+        };
 
-    const videoUrl = 'https://t.me/kajal_developer/57';
-    const buttons = [
-        [{ text: '💻 Commands', callback_data: '/Commands' }],
-        [{ text: '👨‍💻 DEV', url: 'https://t.me/Teleservices_Api' }],
-        [{ text: '◀️ Go Back', callback_data: '/goBack' }]
-    ];
-    const caption = `<b>👋 Welcome Back, ${user.first_name}!</b>\n\n🌟 Bot Status: Alive 🟢\n💞 Dev: @LakshayDied`;
+        // Check if welcome message should be sent
+        if (!settings.welcomeEnabled || (chatId < 0 && !settings.welcomeEnabled)) {
+            return;
+        }
 
-    await telegramApi('sendVideo', {
-        chat_id: chatId,
-        video: videoUrl,
-        caption,
-        parse_mode: 'HTML',
-        reply_markup: { inline_keyboard: buttons }
-    });
+        // Configuration
+        const VIDEO_URL = process.env.WELCOME_VIDEO_URL || 'https://t.me/kajal_developer/57';
+        const DEFAULT_NAME = 'User';
+        
+        // Safe HTML escaping for user input
+        const sanitizeHTML = (str) => str.replace(/[&<>]/g, tag => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;'
+        }[tag]));
+
+        // Prepare buttons
+        const buttons = [
+            [{ text: '💻 Commands', callback_data: '/commands' }],  // Consistent lowercase
+            [{ text: '👨‍💻 DEV', url: 'https://t.me/Teleservices_Api' }],
+            [{ text: '◀️ Go Back', callback_data: '/goback' }]      // Consistent lowercase
+        ];
+
+        // Build caption with safe content
+        const caption = `<b>👋 Welcome Back, ${sanitizeHTML(user.first_name || DEFAULT_NAME)}!</b>\n\n` +
+                       `🌟 Bot Status: Alive 🟢\n` +
+                       `💞 Dev: @LakshayDied`;
+
+        // Send message
+        await telegramApi('sendVideo', {
+            chat_id: chatId,
+            video: VIDEO_URL,
+            caption: caption,
+            parse_mode: 'HTML',
+            reply_markup: { inline_keyboard: buttons }
+        });
+    } catch (error) {
+        console.error('Failed to send welcome message:', error);
+        // Consider implementing retry logic or error reporting here
+    }
 }
 
 async function sendCommandsMenu(chatId) {
