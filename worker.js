@@ -257,7 +257,11 @@ async function sendPing(chatId) {
     const timeTakenMs = (endTime - startTime).toFixed(3);
     const botVersion = '1.0.0';
     const serverPlatform = process.env.NODE_ENV || 'Production';
-
+    const buttons = [
+        [{ text: 'close', callback_data: '/close' }],
+        [{ text: '👨‍💻 Developer', url: 'https://t.me/Teleservices_Api' }],
+        [{ text: 'back', callback_data: '/goBack' }]
+    ];
     const caption = `
 <blockquote>📊 SYSTEM STATUS UPDATE</blockquote>
 
@@ -288,7 +292,8 @@ async function sendPing(chatId) {
         chat_id: chatId,
         message_id: pingMessage.result.message_id,
         caption: caption,
-        parse_mode: 'HTML'
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: buttons }
     });
 }
 
