@@ -242,10 +242,14 @@ async function sendUserProfile(chatId, user) {
 //
 async function sendPing(chatId) {
     const startTime = performance.now();
-    const pingMessage = await telegramApi('sendMessage', { 
-        chat_id: chatId, 
-        text: '<b>🏓 Pinging Server...</b>', 
-        parse_mode: 'HTML' 
+    const photoUrl = "https://t.me/kajal_developer/59";
+    
+    // First send a photo message with initial text
+    const pingMessage = await telegramApi('sendPhoto', {
+        chat_id: chatId,
+        photo: photoUrl,
+        caption: '<b>🏓 Pinging Server...</b>',
+        parse_mode: 'HTML'
     });
     
     if (!pingMessage?.result) return;
@@ -255,7 +259,7 @@ async function sendPing(chatId) {
     const botVersion = '1.0.0';
     const serverPlatform = process.env.NODE_ENV || 'Production';
 
-    const pingText = `
+    const caption = `
 <blockquote>📊 SYSTEM STATUS UPDATE</blockquote>
 
 <blockquote>•❅─────✧❅✦❅✧─────❅•</blockquote>
@@ -280,10 +284,11 @@ async function sendPing(chatId) {
 <i>🔋 Systems Nominal | Maintained by xAI Technologies</i>
     `;
 
-    await telegramApi('editMessageText', {
+    // Edit the existing photo message's caption
+    await telegramApi('editMessageCaption', {
         chat_id: chatId,
         message_id: pingMessage.result.message_id,
-        text: pingText,
+        caption: caption,
         parse_mode: 'HTML'
     });
 }
