@@ -263,7 +263,7 @@ async function sendPing(chatId) {
 <blockquote>📊 SYSTEM STATUS UPDATE</blockquote>
 
 <blockquote>•❅─────✧❅✦❅✧─────❅•</blockquote>
-➻ <b>Bot Name:</b> <code>xAI Assistant</code>
+➻ <b>Bot Name:</b> <code>${bot.name}</code>
 ➻ <b>Version:</b> <code>${botVersion}</code>
 ➻ <b>Developer:</b> @xAI_Team
 
