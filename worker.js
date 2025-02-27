@@ -263,7 +263,7 @@ async function sendPing(chatId) {
 <blockquote>📊 SYSTEM STATUS UPDATE</blockquote>
 
 <blockquote>•❅─────✧❅✦❅✧─────❅•</blockquote>
-➻ <b>Bot Name:</b> <code>${user.first_name}</code>
+➻ <b>Bot Name:</b> <code>Lx porn bot</code>
 ➻ <b>Version:</b> <code>${botVersion}</code>
 ➻ <b>Developer:</b> @xAI_Team
 
