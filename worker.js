@@ -66,7 +66,7 @@ async function run(model, input) {
     `https://api.cloudflare.com/client/v4/accounts/05155e8a4c89ed88082182aed190fec7/ai/run/${model}`,
     {
       headers: { 
-        Authorization: "Bearer {API_TOKEN}" // Replace with your API token
+        Authorization: "10Ddp8ptjfl2weyfRjat5Hlo3iKTjzhr-Kgdr5bd" // Replace with your API token
       },
       method: "POST",
       body: JSON.stringify(input),
