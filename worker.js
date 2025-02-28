@@ -1,76 +1,56 @@
-addEventListener('fetch', (event) => {
-  event.respondWith(handleRequest(event.request));
-});
-
-async function handleRequest(request) {
-  const url = new URL(request.url);
-  
-  // Handle GET requests to /chat endpoint
-  if (url.pathname === '/chat' && request.method === 'GET') {
+export default {
+  async fetch(request, env) {
+    // Get the question from URL parameter
+    const url = new URL(request.url);
     const question = url.searchParams.get('question');
-    const modelParam = url.searchParams.get('model') || 'deepseek-r1';
 
-    // Validate question parameter
+    // If no question provided, return error
     if (!question) {
-      return new Response(JSON.stringify({ error: 'Question parameter is required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return new Response('Please provide a question parameter', { status: 400 });
     }
 
-    // Map model parameter to full model identifier
-    const model = modelParam === 'deepseek-r1' 
-      ? '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b' 
-      : modelParam;
+    // Your original run function
+    async function run(model, input) {
+      const response = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/05155e8a4c89ed88082182aed190fec7/ai/run/${model}`,
+        {
+          headers: { 
+            Authorization: `Bearer ${env.API_TOKEN}` // Store token in environment variable
+          },
+          method: "POST",
+          body: JSON.stringify(input),
+        }
+      );
+      const result = await response.json();
+      return result;
+    }
 
     try {
-      // Create messages array
-      const messages = [
-        {
-          role: "system",
-          content: "You are a friendly assistan that helps write stories"
-        },
-        {
-          role: "user",
-          content: question
-        }
-      ];
-
-      // Call AI model
-      const result = await run(model, { messages });
-      
-      // Return successful response
-      return new Response(JSON.stringify(result), {
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*' // Add CORS headers if needed
-        }
+      // Call the AI with the question
+      const aiResponse = await run("@cf/deepseek-ai/deepseek-r1-distill-qwen-32b", {
+        messages: [
+          {
+            role: "system",
+            content: "You are a friendly assistant that helps write stories",
+          },
+          {
+            role: "user",
+            content: question,
+          },
+        ],
       });
-      
+
+      // Return the response
+      return new Response(JSON.stringify(aiResponse), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200
+      });
+
     } catch (error) {
-      // Handle errors
       return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        status: 500
       });
     }
   }
-
-  // Return 404 for other endpoints
-  return new Response('Not Found', { status: 404 });
-}
-
-// Existing run function (update API_TOKEN and account ID)
-async function run(model, input) {
-  const response = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/05155e8a4c89ed88082182aed190fec7/ai/run/${model}`,
-    {
-      headers: { 
-        Authorization: "10Ddp8ptjfl2weyfRjat5Hlo3iKTjzhr-Kgdr5bd" // Replace with your API token
-      },
-      method: "POST",
-      body: JSON.stringify(input),
-    }
-  );
-  return response.json();
-}
+};
