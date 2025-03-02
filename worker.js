@@ -126,7 +126,7 @@ The bot will generate valid credit card numbers using the Luhn algorithm.
     const messageText = `
 ••• CC GENERATOR
 • Format Used: ${binNumber}
-${binInfo.scheme?.toUpperCase() || ""}\n
+• Format Used: ${binInfo.scheme?.toUpperCase() || ""}
 
 ${binInfoText}
 
