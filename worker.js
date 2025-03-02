@@ -107,7 +107,6 @@ The bot will generate valid credit card numbers using the Luhn algorithm.
     }
 
     const binInfo = await getBinInfo(binNumber);
-    let binInfoText = "⚠️ BIN not found in database.";
     if (binInfo) {
       binInfoText = "🏦 BIN Information:\n";
       binInfoText += `• Brand: ${binInfo.scheme?.toUpperCase() || ""}\n`;
@@ -126,7 +125,8 @@ The bot will generate valid credit card numbers using the Luhn algorithm.
     const messageText = `
 ••• CC GENERATOR
 • Format Used: ${binNumber}
-• Format Used: ${binInfo.scheme?.toUpperCase() || ""}
+
+${binInfo}
 
 ${binInfoText}
 
