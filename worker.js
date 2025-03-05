@@ -106,6 +106,9 @@ async function handleUpdate(update) {
                 case '/ban':
                     await handleBan(chatId, user, reply_to_message, message_id);
                     break;
+                case '/genpassword':
+                    await handlePasswordCommand(update);
+                    break;
                 default:
                     await sendDefaultMessage(chatId);
             }
@@ -543,9 +546,32 @@ async function sendAdminNotification(chatId, user) {
         parse_mode: 'HTML'
     });
 }
+
 // 
+async function handlePasswordCommand(update) {
+    const message = await telegramApi('sendMessage', { chat_id: update.message.chat.id, text: 'Pʀᴏᴄᴇꜱꜱɪɴɢ..', parse_mode: 'Markdown' });
+    const passwordChars = "abcdefghijklmnopqrstuvwxyz1234567890!@#$%^&*()_+";
+    let limit;
+    
+    if (update.message.text.split(" ").length > 1) {
+        limit = parseInt(update.message.text.split(" ")[1]);
+    } else {
+        const ST = ["5", "7", "6", "9", "10", "12", "14", "8", "13"];
+        limit = parseInt(ST[Math.floor(Math.random() * ST.length)]);
+    }
 
+    const randomValue = Array.from({ length: limit }, () => passwordChars[Math.floor(Math.random() * passwordChars.length)]).join('');
+    const txt = `<b>Lɪᴍɪᴛ:</b> ${limit} \n<b>Pᴀꜱꜱᴡᴏʀᴅ:</b> <code>${randomValue}</code>`;
+    const btn = { inline_keyboard: [[{ text: 'Mᴋɴ Bᴏᴛᴢ™️', url: 'https://t.me/mkn_bots_updates' }]] };
 
+    await telegramApi('editMessageText', {
+        chat_id: message.result.chat.id,
+        message_id: message.result.message_id,
+        text: txt,
+        reply_markup: btn,
+        parse_mode: 'HTML'
+    });
+}
 // Event listener for fetc
 addEventListener('fetch', event => {
     event.respondWith(handleRequest(event.request));
