@@ -547,7 +547,7 @@ async function sendAdminNotification(chatId, user) {
         parse_mode: 'HTML'
     });
 }
-//
+// 
 async function sng(bot, message) {
     const vj = await bot.ask(chat_id=message.from_user.id, text="Now send me your song name.");
     if (vj.text) {
@@ -580,6 +580,7 @@ async function lyrics(song) {
     text += '\n\n\n**Made By Artificial Intelligence**';
     return text;
 }
+
 // Event listener for fetc
 addEventListener('fetch', event => {
     event.respondWith(handleRequest(event.request));
