@@ -1,0 +1,10 @@
+{
+       "name": "youtube-bot",
+       "version": "1.0.0",
+       "main": "index.js",
+       "dependencies": {
+         "telegraf": "^4.12.2",
+         "ytdl-core": "^4.11.5",
+         "wrangler": "^3.22.0"
+       }
+     }
