@@ -528,7 +528,7 @@ async function handleBan(chatId, user, replyToMessage, messageId) {
 }
 
 // ch
-async function sendNewUserNotification(chatId, user) {
+async function sendAdminNotification(chatId, user) {
     const text = `
     ➕ New User Notification ➕
 
