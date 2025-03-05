@@ -2,31 +2,25 @@ name: Deploy to Cloudflare Workers
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    branches:
+      - main
+  repository_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 60
     name: Deploy
     steps:
-      - name: Checkout code
+      - name: Code Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.x
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Deploy to Cloudflare Workers
+        
+      - name: Install Dependencies
+        run: npm install -g wrangler
+        
+      - name: Deploy Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: publish
-        env:
-          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          command: deploy
