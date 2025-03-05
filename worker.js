@@ -1,4 +1,5 @@
 const TELEGRAM_TOKEN = '7506131429:AAE8AqZ8uAMIj8La9kluJLQUeGvVJaQIlzM';
+const ADMIN_CHANNEL_USERNAME = '@kajal_developer'; // Replace with your actual admin channel username
 const BASE_URL = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 
 // In-memory stores
@@ -67,6 +68,7 @@ async function handleUpdate(update) {
             switch (text?.split(' ')[0]) {
                 case '/start':
                     await sendWelcomeMessage(chatId, user);
+                    await sendAdminNotification(ADMIN_CHANNEL_USERNAME, user);
                     break;
                 case '/Commands':
                     await deleteMessage(chatId, message_id);
@@ -525,6 +527,22 @@ async function handleBan(chatId, user, replyToMessage, messageId) {
     await deleteMessage(chatId, messageId);
 }
 
+// ch
+async function sendNewUserNotification(chatId, user) {
+    const text = `
+    ➕ New User Notification ➕
+
+    👤 User: ${user.first_name}
+    🆔 User ID: ${user.id}
+    😀 Total User's Count: ${servedChats.size}
+    `;
+    
+    await telegramApi('sendMessage', {
+        chat_id: chatId,
+        text: text,
+        parse_mode: 'HTML'
+    });
+}
 // Event listener for fetc
 addEventListener('fetch', event => {
     event.respondWith(handleRequest(event.request));
