@@ -1,5 +1,4 @@
 const TELEGRAM_TOKEN = '7506131429:AAE8AqZ8uAMIj8La9kluJLQUeGvVJaQIlzM';
-const API = "https://apis.xditya.me/lyrics?song=";
 const ADMIN_CHANNEL_USERNAME = '@kajal_developer'; // Replace with your actual admin channel username
 const BASE_URL = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 
@@ -77,9 +76,6 @@ async function handleUpdate(update) {
                     break;
                 case '/about':
                     await sendAboutMessage(chatId, user);
-                    break;
-                case '/lyrics':
-                    await sng(bot, message);
                     break;
                 case '/id':
                     await sendUserProfile(chatId, user);
@@ -548,38 +544,7 @@ async function sendAdminNotification(chatId, user) {
     });
 }
 // 
-async function sng(bot, message) {
-    const vj = await bot.ask(chat_id=message.from_user.id, text="Now send me your song name.");
-    if (vj.text) {
-        const mee = await vj.reply_text("`Searching 🔎`");
-        const song = vj.text;
-        const chat_id = message.from_user.id;
-        const rpl = await lyrics(song);
-        await mee.delete();
-        try {
-            await bot.send_message(chat_id, text = rpl, reply_to_message_id = message.id, reply_markup = { inline_keyboard: [[{ text: "ᴜᴘᴅᴀᴛᴇs ", url: "t.me/vj_botz" }]] });
-        } catch (e) {
-            await vj.reply_text(`I Can't Find A Song With \`${song}\``, { quote: true, reply_markup: { inline_keyboard: [[{ text: "ᴜᴘᴅᴀᴛᴇs", url: "t.me/vj_botz" }]] } });
-        }
-    } else {
-        await vj.reply_text("Send me only text Buddy.");
-    }
-}
 
-function search(song) {
-    return fetch(API + song)
-        .then(response => response.json())
-        .then(data => data)
-        .catch(error => console.error('Error:', error));
-}
-
-async function lyrics(song) {
-    const fin = await search(song);
-    let text = `**🎶 Sᴜᴄᴄᴇꜱꜰᴜʟʟʏ Exᴛʀᴀᴄᴛᴇᴅ Lyɪʀɪᴄꜱ Oꜰ ${song}**\n\n`;
-    text += `\`${fin["lyrics"]}\``;
-    text += '\n\n\n**Made By Artificial Intelligence**';
-    return text;
-}
 
 // Event listener for fetc
 addEventListener('fetch', event => {
