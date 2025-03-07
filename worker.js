@@ -51,4 +51,3 @@ async function handleRequest(request) {
       }
     });
   }
-}
