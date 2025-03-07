@@ -1,53 +1,50 @@
 addEventListener('fetch', event => {
-  event.respondWith(handleRequest(event.request));
-});
+  event.respondWith(handleRequest(event.request))
+})
 
 async function handleRequest(request) {
-  // Get URL parameter from the request
-  const urlObj = new URL(request.url);
-  const instagramUrl = urlObj.searchParams.get('url') || '';
-  
-  // Encode the Instagram URL and construct the API endpoint
-  const encodedUrl = encodeURIComponent(instagramUrl);
-  const apiUrl = `https://instagram-downloader-download-instagram-stories-videos4.p.rapidapi.com/convert?url=${encodedUrl}`;
-
-  const options = {
-    method: 'GET',
-    headers: {
-      'x-rapidapi-key': 'c7e2fc48e0msh077ba9d1e502feep11ddcbjsn4653c738de70',
-      'x-rapidapi-host': 'instagram-downloader-download-instagram-stories-videos4.p.rapidapi.com'
-    }
-  };
-
   try {
-    // Make the API request
-    const response = await fetch(apiUrl, options);
-    
-    // Check if response is successful
-    if (!response.ok) {
-      return new Response(`API Error: ${response.status} - ${response.statusText}`, {
-        status: response.status
-      });
+    // Get URL parameter from the query string
+    const requestUrl = new URL(request.url)
+    const inputUrl = requestUrl.searchParams.get('url')
+
+    if (!inputUrl) {
+      return new Response(JSON.stringify({ error: 'Missing URL parameter' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      })
     }
+
+    // Configure the API request
+    const apiUrl = 'https://social-download-all-in-one.p.rapidapi.com/v1/social/autolink'
+    const options = {
+      method: 'POST',
+      headers: {
+        'x-rapidapi-key': 'c7e2fc48e0msh077ba9d1e502feep11ddcbjsn4653c738de70',
+        'x-rapidapi-host': 'social-download-all-in-one.p.rapidapi.com',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ url: inputUrl })
+    }
+
+    // Forward the request to RapidAPI
+    const response = await fetch(apiUrl, options)
     
-    // Get the response text
-    const result = await response.text();
-    
-    // Return the response
-    return new Response(result, {
-      status: 200,
+    // Return the response with CORS headers
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*', // CORS support
-        'Cache-Control': 'max-age=3600' // Cache for 1 hour
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
       }
-    });
+    })
   } catch (error) {
-    // Error handling
-    return new Response(`Error: ${error.message}`, {
+    return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: {
-        'Content-Type': 'text/plain'
-      }
-    });
+      headers: { 'Content-Type': 'application/json' }
+    })
   }
+}
