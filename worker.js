@@ -1,62 +1,54 @@
-// src/worker.js
-export default {
-  async fetch(request, env) {
-    const APIFY_API_TOKEN = env.APIFY_API_TOKEN;
-    const ACTOR_ID = '6DxvlyVtOgcLG9QVd';
-    const DEFAULT_LOCATIONS = [
-      "https://www.instagram.com/explore/locations/451366841879591/palace-of-versailles/",
-      "1412043802427435"
-    ];
+addEventListener('fetch', event => {
+  event.respondWith(handleRequest(event.request));
+});
 
-    try {
-      // Parse request URL for parameters
-      const url = new URL(request.url);
-      const urlParams = url.searchParams.getAll('url');
-      
-      // Use URL parameters or default locations
-      const locations = urlParams.length > 0 ? urlParams : DEFAULT_LOCATIONS;
+async function handleRequest(request) {
+  // Get URL parameter from the request
+  const urlObj = new URL(request.url);
+  const instagramUrl = urlObj.searchParams.get('url') || 'https://www.instagram.com/p/CxLWFNksXOE/?igsh=MWc3b3ZkbHoxa2YyOQ==';
+  
+  // Encode the Instagram URL and construct the API endpoint
+  const encodedUrl = encodeURIComponent(instagramUrl);
+  const apiUrl = `https://instagram-downloader-download-instagram-stories-videos4.p.rapidapi.com/convert?url=${encodedUrl}`;
 
-      // Construct input
-      const input = {
-        locations: locations
-      };
+  const options = {
+    method: 'GET',
+    headers: {
+      'x-rapidapi-key': 'c7e2fc48e0msh077ba9d1e502feep11ddcbjsn4653c738de70',
+      'x-rapidapi-host': 'instagram-downloader-download-instagram-stories-videos4.p.rapidapi.com'
+    }
+  };
 
-      // Run Apify Actor
-      const runResponse = await fetch(
-        `https://api.apify.com/v2/acts/${ACTOR_ID}/runs?token=${APIFY_API_TOKEN}&waitForFinish=30`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(input)
-        }
-      );
-
-      if (!runResponse.ok) {
-        throw new Error(`Apify run failed: ${await runResponse.text()}`);
-      }
-
-      const runData = await runResponse.json();
-
-      // Get results from dataset
-      const datasetResponse = await fetch(
-        `https://api.apify.com/v2/datasets/${runData.data.defaultDatasetId}/items?token=${APIFY_API_TOKEN}`
-      );
-
-      if (!datasetResponse.ok) {
-        throw new Error(`Dataset fetch failed: ${await datasetResponse.text()}`);
-      }
-
-      const items = await datasetResponse.json();
-
-      return new Response(JSON.stringify(items, null, 2), {
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-    } catch (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
+  try {
+    // Make the API request
+    const response = await fetch(apiUrl, options);
+    
+    // Check if response is successful
+    if (!response.ok) {
+      return new Response(`API Error: ${response.status} - ${response.statusText}`, {
+        status: response.status
       });
     }
+    
+    // Get the response text
+    const result = await response.text();
+    
+    // Return the response
+    return new Response(result, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*', // CORS support
+        'Cache-Control': 'max-age=3600' // Cache for 1 hour
+      }
+    });
+  } catch (error) {
+    // Error handling
+    return new Response(`Error: ${error.message}`, {
+      status: 500,
+      headers: {
+        'Content-Type': 'text/plain'
+      }
+    });
   }
-};
+}
