@@ -5,7 +5,7 @@ addEventListener('fetch', event => {
 async function handleRequest(request) {
   // Get URL parameter from the request
   const urlObj = new URL(request.url);
-  const instagramUrl = urlObj.searchParams.get('url') || 'https://www.instagram.com/p/CxLWFNksXOE/?igsh=MWc3b3ZkbHoxa2YyOQ==';
+  const instagramUrl = urlObj.searchParams.get('url') || '';
   
   // Encode the Instagram URL and construct the API endpoint
   const encodedUrl = encodeURIComponent(instagramUrl);
