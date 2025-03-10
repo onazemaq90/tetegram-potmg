@@ -27,7 +27,7 @@ export default {
                                 { text: "🚀 Updates", url: "https://t.me/+lJ3m8WWL5-BkN2Y1" }
                             ],
                             [
-                                { text: "✅ Joined ✅", callback_data: "joined" }
+                                { text: "✅ Joined ✅", callback_data: "/joined" }
                             ]
                         ]
                     };
