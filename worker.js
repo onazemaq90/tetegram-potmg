@@ -1,5 +1,3 @@
-const BOT_TOKEN = "7286429810:AAGZ4Ban1Q5jh7DH_FKg_ROgMndXpwkpRO4";
-
 addEventListener("fetch", event => {
     event.respondWith(handleRequest(event.request));
 });
@@ -7,95 +5,74 @@ addEventListener("fetch", event => {
 async function handleRequest(request) {
     const data = await request.json();
 
-    if (data.message) {
-        const msg = data.message;
+    const text = data.message?.text || "";
+    const chatId = data.message?.chat?.id;
 
-        if (msg.text === "/start") {
-            let joinButtons = [
-                [
-                    { text: "🚀 Join Channel 1", url: "https://t.me/Starxnetwork" },
-                    { text: "🚀 Join Channel 2", url: "https://t.me/starxbackup" }
-                ],
-                [
-                    { text: "🚀 Join Support", url: "https://t.me/StarX_Support" },
-                    { text: "🚀 Updates", url: "https://t.me/+lJ3m8WWL5-BkN2Y1" }
-                ],
-                [
-                    { text: "✅ Joined ✅", callback_data: "/joined" }
-                ]
-            ];
-
-            let userName = msg.from.first_name || "User";
-            let userId = msg.from.id || "Unknown";
-
-            return new Response(JSON.stringify({
-                method: "sendPhoto",
-                chat_id: msg.chat.id,
-                photo: "https://t.me/STAR_X_BACKUP/66",
-                caption: `*🙋‍♂ Welcome* [${userName}](tg://user?id=${userId})\n\n` +
-                    "🔎 *You must join our channels before using this bot.*\n\n" +
-                    "📢 *Click the buttons below to join the required channels.*\n" +
-                    "✅ After joining, click the **'Joined'** button.",
-                reply_markup: { inline_keyboard: joinButtons },
-                parse_mode: "Markdown"
-            }), { headers: { "Content-Type": "application/json" } });
-        }
-
-        if (msg.text === "/joined") {
-            return await handleJoinedCommand(msg);
-        }
-
-        if (msg.text === "/mainmenu") {
-            return await handleMainMenu(msg);
-        }
+    if (text.startsWith("/start")) {
+        return await sendStartMessage(chatId);
+    } else if (text.startsWith("/joined")) {
+        return await handleJoined(chatId);
+    } else if (text.startsWith("/mainmenu")) {
+        return await sendMainMenu(chatId);
     }
 
     return new Response("OK");
 }
 
-async function handleJoinedCommand(msg) {
-    const userId = msg.from.id;
-    const chatId = msg.chat.id;
+// /start Command
+async function sendStartMessage(chatId) {
+    const joinButtons = [
+        [
+            { text: "🚀 Join Channel 1", url: "https://t.me/Starxnetwork" },
+            { text: "🚀 Join Channel 2", url: "https://t.me/starxbackup" }
+        ],
+        [
+            { text: "🚀 Join Support", url: "https://t.me/StarX_Support" },
+            { text: "🚀 Updates", url: "https://t.me/+lJ3m8WWL5-BkN2Y1" }
+        ],
+        [
+            { text: "✅ Joined ✅", callback_data: "/joined" }
+        ]
+    ];
 
-    let userStatus = await checkMembership("@lt_MrVirus", userId);
+    const message = `*🙋‍♂ Welcome!*\n\n🔎 *You must join our channels before using this bot.*\n\n📢 Click the buttons below to join the required channels.\n✅ After joining, click the **'Joined'** button.`;
 
-    if (userStatus === "member" || userStatus === "administrator" || userStatus === "creator") {
-        return new Response(JSON.stringify({
-            method: "sendMessage",
+    await sendTelegramRequest("sendPhoto", {
+        chat_id: chatId,
+        photo: "https://t.me/STAR_X_BACKUP/66",
+        caption: message,
+        reply_markup: { inline_keyboard: joinButtons },
+        parse_mode: "Markdown"
+    });
+}
+
+// /joined Command
+async function handleJoined(chatId) {
+    const channel2 = "@lt_MrVirus";
+
+    const memberStatus = await getChatMemberStatus(chatId, channel2);
+
+    if (memberStatus === "member" || memberStatus === "administrator" || memberStatus === "creator") {
+        await sendTelegramRequest("sendMessage", {
             chat_id: chatId,
-            text: "*✅ Welcome!*\nYou have successfully joined the channel.",
-            parse_mode: "Markdown"
-        }), { headers: { "Content-Type": "application/json" } });
+            text: "*✅ Welcome!*\nYou have successfully joined the channel."
+        });
+        await sendMainMenu(chatId);
     } else {
-        return new Response(JSON.stringify({
-            method: "sendMessage",
+        await sendTelegramRequest("sendMessage", {
             chat_id: chatId,
-            text: "*⚠️ Channel Subscription Required*\n\n" +
-                "Please join our channel to use this bot:\n" +
-                "@lt_MrVirus\n\n" +
-                "After joining, type /start again.",
-            parse_mode: "Markdown"
-        }), { headers: { "Content-Type": "application/json" } });
+            text: "*⚠️ Channel Subscription Required*\n\nPlease join our channel to use this bot:\n@lt_MrVirus\n\nAfter joining, type /start again."
+        });
     }
 }
 
-async function checkMembership(channel, userId) {
-    const apiUrl = `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=${channel}&user_id=${userId}`;
-    const response = await fetch(apiUrl);
-    const result = await response.json();
+// /mainmenu Command
+async function sendMainMenu(chatId) {
+    const mainMenu = "🥵 CP (Porn) 🥵, 🥵 CP 2 (Porn) 🥵\n📌 POR 1, POR 2\n📌 POR 3, POR 4\n";
 
-    return result.result.status;
-}
-
-async function handleMainMenu(msg) {
-    const chatId = msg.chat.id;
-
-    return new Response(JSON.stringify({
-        method: "sendMessage",
+    await sendTelegramRequest("sendMessage", {
         chat_id: chatId,
-        text: "*🔥 WELCOME TO THE BOT 🔥*\n\n" +
-            "🥵 CP (Porn) 🥵, 🥵 CP 2 (Porn) 🥵\n" +
-            "📌 POR 1, POR 2\n📌 POR 3, POR 4\n",
+        text: "*🔥 WELCOME TO THE BOT 🔥*",
         reply_markup: {
             keyboard: [
                 ["🥵 CP (Porn) 🥵", "🥵 CP 2 (Porn) 🥵"],
@@ -103,7 +80,24 @@ async function handleMainMenu(msg) {
                 ["📌 POR 3", "📌 POR 4"]
             ],
             resize_keyboard: true
-        },
-        parse_mode: "Markdown"
-    }), { headers: { "Content-Type": "application/json" } });
-         }
+        }
+    });
+}
+
+// Helper function to send requests to Telegram API
+async function sendTelegramRequest(method, body) {
+    const token = "7286429810:AAGZ4Ban1Q5jh7DH_FKg_ROgMndXpwkpRO4";
+    await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+    });
+}
+
+// Helper function to check channel membership
+async function getChatMemberStatus(userId, channel) {
+    const token = "7286429810:AAGZ4Ban1Q5jh7DH_FKg_ROgMndXpwkpRO4";
+    const response = await fetch(`https://api.telegram.org/bot${token}/getChatMember?chat_id=${channel}&user_id=${userId}`);
+    const result = await response.json();
+    return result?.result?.status || "left";
+}
