@@ -34,9 +34,15 @@ async function fetchIPInfo(ip) {
     return `🌍 *IP Information*\n
 📍 *Country:* ${data.country}
 ↪️ *CountryCode:* ${data.countryCode}
+↪️ *region:* ${data.region}
+↪️ *regionName:* ${data.regionName}
 🏙️ *City:* ${data.city}
 ⚡ *zip:* ${data.zip}
-📡 *ISP:* ${data.isp}
+↪️ *lat:* ${data.lat}
+↪️ *lon:* ${data.lon}
+↪️ *org:* ${data.lat}
+↪️ *as:*  ${data.as}
+📡 *ISP:* ${data.org}
 🌐 *IP:* ${data.query}
 ⏱️ *Timezone:* ${data.timezone}`;
 }
