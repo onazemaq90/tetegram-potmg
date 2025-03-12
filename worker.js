@@ -33,6 +33,7 @@ async function fetchIPInfo(ip) {
 
     return `🌍 *IP Information*\n
 📍 *Country:* ${data.country}
+↪️ *CountryCode:* ${data.countryCode}
 🏙️ *City:* ${data.city}
 ⚡ *zip:* ${data.zip}
 📡 *ISP:* ${data.isp}
