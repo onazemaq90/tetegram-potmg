@@ -1,153 +1,109 @@
 const BOT_TOKEN = "7286429810:AAGZ4Ban1Q5jh7DH_FKg_ROgMndXpwkpRO4";
-const API_URL = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
-async function handleUpdate(update) {
-    const message = update.message;
-    const chatId = message.chat.id;
-    const text = message.text || "";
+addEventListener("fetch", event => {
+    event.respondWith(handleRequest(event.request));
+});
 
-    if (text.startsWith("/start")) {
-        await sendMessage(chatId, "🙋‍♂️ Welcome to the bot! Use:\n- `/ip <IP>` for IP info\n- `/tts <text>` for text-to-speech\n- `/instadl <url>` for Instagram video download.");
-    } 
-    else if (text.startsWith("/ip")) {
-        const ipAddress = text.split(" ")[1];
-        if (!ipAddress) {
-            await sendMessage(chatId, "❌ Please provide an IP address. Example: `/ip 8.8.8.8`");
-            return;
+async function handleRequest(request) {
+    const data = await request.json();
+
+    if (data.message) {
+        const msg = data.message;
+
+        if (msg.text === "/start") {
+            let joinButtons = [
+                [
+                    { text: "🚀 Join Channel 1", url: "https://t.me/Starxnetwork" },
+                    { text: "🚀 Join Channel 2", url: "https://t.me/starxbackup" }
+                ],
+                [
+                    { text: "🚀 Join Support", url: "https://t.me/StarX_Support" },
+                    { text: "🚀 Updates", url: "https://t.me/+lJ3m8WWL5-BkN2Y1" }
+                ],
+                [
+                    { text: "✅ Joined ✅", callback_data: "/joined" }
+                ]
+            ];
+
+            let userName = msg.from.first_name || "User";
+            let userId = msg.from.id || "Unknown";
+
+            return new Response(JSON.stringify({
+                method: "sendPhoto",
+                chat_id: msg.chat.id,
+                photo: "https://t.me/STAR_X_BACKUP/66",
+                caption: `*🙋‍♂ Welcome* [${userName}](tg://user?id=${userId})\n\n` +
+                    "🔎 *You must join our channels before using this bot.*\n\n" +
+                    "📢 *Click the buttons below to join the required channels.*\n" +
+                    "✅ After joining, click the **'Joined'** button.",
+                reply_markup: { inline_keyboard: joinButtons },
+                parse_mode: "Markdown"
+            }), { headers: { "Content-Type": "application/json" } });
         }
-        const ipData = await fetchIPInfo(ipAddress);
-        await sendMessage(chatId, ipData);
-    } 
-    else if (text.startsWith("/tts")) {
-        const ttsText = text.replace("/tts", "").trim();
-        if (!ttsText) {
-            await sendMessage(chatId, "❌ Please provide text for TTS. Example: `/tts Hello World`");
-            return;
+
+        if (msg.text === "/joined") {
+            return await handleJoinedCommand(msg);
         }
-        const audioUrl = await generateSpeech(ttsText);
-        if (audioUrl) {
-            await sendAudio(chatId, audioUrl);
-        } else {
-            await sendMessage(chatId, "❌ Failed to generate speech. Try again later.");
+
+        if (msg.text === "/mainmenu") {
+            return await handleMainMenu(msg);
         }
-    } 
-    else if (text.startsWith("/instadl")) {
-        const url = text.split(" ")[1];
-        if (!url) {
-            await sendMessage(chatId, "❌ Please provide an Instagram URL. Example: `/instadl <video_url>`");
-            return;
-        }
-        await downloadInstagramMedia(chatId, url);
-    } 
-    else {
-        await sendMessage(chatId, "❓ Unknown command. Try `/start`, `/ip <IP>`, `/tts <text>`, or `/instadl <url>`.");
     }
+
+    return new Response("OK");
 }
 
-async function fetchIPInfo(ip) {
-    const response = await fetch(`http://ip-api.com/json/${ip}`);
-    const data = await response.json();
+async function handleJoinedCommand(msg) {
+    const userId = msg.from.id;
+    const chatId = msg.chat.id;
 
-    if (data.status === "fail") {
-        return `❌ Invalid IP address or not found.`;
-    }
+    let userStatus = await checkMembership("@lt_MrVirus", userId);
 
-    return `🌍 *IP Information*\n
-📍 *Country:* ${data.country}
-🏙️ *City:* ${data.city}
-📡 *ISP:* ${data.isp}
-🌐 *IP:* ${data.query}
-⏱️ *Timezone:* ${data.timezone}`;
-}
-
-async function generateSpeech(text) {
-    const res = await fetch("https://api.sws.speechify.com/v1/audio/speech", {
-        method: "POST",
-        body: JSON.stringify({
-            input: `<speak>${text}</speak>`,
-            voice_id: "henry",
-            audio_format: "mp3"
-        }),
-        headers: {
-            Authorization: `Bearer ${SPEECHIFY_API_KEY}`,
-            "Content-Type": "application/json"
-        }
-    });
-
-    const responseData = await res.json();
-    if (responseData.audio_data) {
-        const audioData = Buffer.from(responseData.audio_data, "base64");
-        const audioBlob = new Blob([audioData], { type: "audio/mpeg" });
-        const audioUrl = URL.createObjectURL(audioBlob);
-        return audioUrl;
-    }
-    return null;
-}
-
-async function downloadInstagramMedia(chatId, url) {
-    const res = await fetch(`https://horridapi.onrender.com/instadl?url=${encodeURIComponent(url)}`);
-    const data = await res.json();
-
-    if (data.STATUS !== "OK") {
-        await sendMessage(chatId, "❌ Not a valid Instagram URL.");
-        return;
-    }
-
-    const media = [];
-    const result = data.result;
-
-    for (const item of result) {
-        if (item.media === "image") {
-            media.push({ type: "photo", media: item.url });
-        } else {
-            media.push({ type: "video", media: item.url });
-        }
-    }
-
-    await sendMediaGroup(chatId, media);
-}
-
-async function sendMessage(chatId, text) {
-    await fetch(`${API_URL}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+    if (userStatus === "member" || userStatus === "administrator" || userStatus === "creator") {
+        return new Response(JSON.stringify({
+            method: "sendMessage",
             chat_id: chatId,
-            text: text,
+            text: "*✅ Welcome!*\nYou have successfully joined the channel.",
             parse_mode: "Markdown"
-        })
-    });
-}
-
-async function sendAudio(chatId, audioUrl) {
-    await fetch(`${API_URL}/sendAudio`, {
-        method: "POST",
-        body: JSON.stringify({
+        }), { headers: { "Content-Type": "application/json" } });
+    } else {
+        return new Response(JSON.stringify({
+            method: "sendMessage",
             chat_id: chatId,
-            audio: audioUrl
-        }),
-        headers: { "Content-Type": "application/json" }
-    });
-}
-
-async function sendMediaGroup(chatId, media) {
-    await fetch(`${API_URL}/sendMediaGroup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            chat_id: chatId,
-            media: media
-        })
-    });
-}
-
-export default {
-    async fetch(request) {
-        if (request.method === "POST") {
-            const update = await request.json();
-            await handleUpdate(update);
-            return new Response("OK");
-        }
-        return new Response("Bot is active.");
+            text: "*⚠️ Channel Subscription Required*\n\n" +
+                "Please join our channel to use this bot:\n" +
+                "@lt_MrVirus\n\n" +
+                "After joining, type /start again.",
+            parse_mode: "Markdown"
+        }), { headers: { "Content-Type": "application/json" } });
     }
-};
+}
+
+async function checkMembership(channel, userId) {
+    const apiUrl = `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=${channel}&user_id=${userId}`;
+    const response = await fetch(apiUrl);
+    const result = await response.json();
+
+    return result.result.status;
+}
+
+async function handleMainMenu(msg) {
+    const chatId = msg.chat.id;
+
+    return new Response(JSON.stringify({
+        method: "sendMessage",
+        chat_id: chatId,
+        text: "*🔥 WELCOME TO THE BOT 🔥*\n\n" +
+            "🥵 CP (Porn) 🥵, 🥵 CP 2 (Porn) 🥵\n" +
+            "📌 POR 1, POR 2\n📌 POR 3, POR 4\n",
+        reply_markup: {
+            keyboard: [
+                ["🥵 CP (Porn) 🥵", "🥵 CP 2 (Porn) 🥵"],
+                ["📌 POR 1", "📌 POR 2"],
+                ["📌 POR 3", "📌 POR 4"]
+            ],
+            resize_keyboard: true
+        },
+        parse_mode: "Markdown"
+    }), { headers: { "Content-Type": "application/json" } });
+         }
