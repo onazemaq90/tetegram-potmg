@@ -1,179 +1,104 @@
-const TELEGRAM_TOKEN = '7286429810:AAGZ4Ban1Q5jh7DH_FKg_ROgMndXpwkpRO4'; // Add your Telegram Bot Token
-const MAIL_TM_API = 'https://api.mail.tm';
+const TOKEN = '7286429810:AAGZ4Ban1Q5jh7DH_FKg_ROgMndXpwkpRO4';
+const BASE_URL = `https://api.telegram.org/bot${TOKEN}`;
+
+const USER_DATA = {};
 
 async function handleRequest(request) {
-    const { message } = await request.json();
+    const data = await request.json();
+    const message = data.message || data.callback_query?.message;
 
-    if (!message || !message.text) return new Response('No message found');
+    if (message) {
+        const chatId = message.chat.id;
+        const text = message.text || data.callback_query?.data;
+        const userId = message.from.id;
 
-    const chatId = message.chat.id;
-    const text = message.text.trim();
-
-    if (text === '/start') {
-        await sendTelegramMessage(chatId, 
-            "📧 Welcome to Mail.tm Bot!\n\nCommands:\n"
-            + "`/create` — Generate a temporary email.\n"
-            + "`/inbox` — Check inbox messages.\n"
-            + "`/me` — Get email account details.\n"
-            + "`/attachment <message_id> <attachment_id>` — Download email attachments."
-        );
-    } 
-    else if (text === '/create') {
-        const emailData = await createMailAccount();
-        if (emailData && emailData.id) {
-            await sendTelegramMessage(chatId, 
-                `✅ **Temporary Email Created:**\n📩 Email: \`${emailData.address}\`\n🔑 Password: \`${emailData.password}\`\n\nUse \`/inbox\` to check messages.`
-            );
-        } else {
-            await sendTelegramMessage(chatId, '❌ Failed to create an email. Try again later.');
+        if (!USER_DATA[userId]) {
+            USER_DATA[userId] = { 
+                premium: false, 
+                points: 5, 
+                referrals: 0 
+            };
         }
-    } 
-    else if (text.startsWith('/attachment')) {
-        const parts = text.split(' ');
-        if (parts.length < 3) {
-            await sendTelegramMessage(chatId, '❗ Usage: `/attachment <message_id> <attachment_id>`');
-        } else {
-            const messageId = parts[1];
-            const attachmentId = parts[2];
-            const attachment = await getAttachment(messageId, attachmentId);
 
-            if (attachment) {
-                await sendDocument(chatId, attachment);
+        if (text === "/start") {
+            return sendMenu(chatId, userId);
+        } else if (text === "/addpremium") {
+            USER_DATA[userId].premium = true;
+            return sendMessage(chatId, "✅ *You are now a Premium user with Unlimited Access!*", 'Markdown');
+        } else if (text === "/addpoints") {
+            USER_DATA[userId].points += 5;
+            return sendMessage(chatId, `🎯 *You've received 5 points!*\n\n🔹 Current Points: ${USER_DATA[userId].points}`, 'Markdown');
+        } else if (text === "/genpoints") {
+            USER_DATA[userId].points += 1;
+            return sendMessage(chatId, `✅ *1 Point Generated!*\n\n💰 Total Points: ${USER_DATA[userId].points}`, 'Markdown');
+        } else if (text === "/redeem") {
+            if (USER_DATA[userId].points >= 10) {
+                USER_DATA[userId].points -= 10;
+                return sendMessage(chatId, "🎁 *Successfully Redeemed 10 Points!*\n\n💰 Remaining Points: " + USER_DATA[userId].points, 'Markdown');
             } else {
-                await sendTelegramMessage(chatId, '❌ Attachment not found or failed to fetch.');
+                return sendMessage(chatId, "❌ *Not enough points to redeem!*\n\n💰 Your Points: " + USER_DATA[userId].points, 'Markdown');
             }
+        } else if (text.startsWith("/refer")) {
+            const refUserId = text.split(' ')[1];
+            if (refUserId && refUserId != userId) {
+                USER_DATA[refUserId].points += 10;
+                return sendMessage(chatId, "🎉 *You've successfully referred a user!*\n\n💰 +10 Points Added!", 'Markdown');
+            } else {
+                return sendMessage(chatId, "❌ *Invalid referral attempt!*", 'Markdown');
+            }
+        } else if (text === "/video") {
+            USER_DATA[userId].points += 1;
+            return sendMedia(chatId, "https://example.com/video.mp4", "🎬 *Here's your random video!* (Earned 1 Point)");
+        } else if (text === "/photo") {
+            USER_DATA[userId].points += 1;
+            return sendMedia(chatId, "https://example.com/photo.jpg", "📸 *Here's your random photo!* (Earned 1 Point)");
         }
-    } 
-    else if (text === '/me') {
-        const accountDetails = await getAccountDetails();
-        if (accountDetails && accountDetails.id) {
-            await sendTelegramMessage(chatId, 
-                `👤 **Account Details:**\n📩 Email: \`${accountDetails.address}\`\n🆔 ID: \`${accountDetails.id}\`\n🟢 Verified: ${accountDetails.isVerified ? 'Yes ✅' : 'No ❌'}`
-            );
-        } else {
-            await sendTelegramMessage(chatId, '❌ Failed to fetch account details.');
-        }
-    } 
-    else {
-        await sendTelegramMessage(chatId, "❓ Unknown command. Use `/start` for help.");
     }
 
-    return new Response('OK');
+    return new Response("OK");
 }
 
-// ✅ Create Mail.tm Account
-async function createMailAccount() {
-    const randomName = `user${Math.floor(Math.random() * 10000)}@mail.tm`;
-    const password = 'password123';
-
-    const response = await fetch(`${MAIL_TM_API}/accounts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            address: randomName,
-            password: password
-        })
-    });
-
-    const data = await response.json();
-    await saveAccountCredentials(data.id, randomName, password);
-    return { ...data, password };
-}
-
-// 📥 Get Email Attachment
-async function getAttachment(messageId, attachmentId) {
-    const { email, password } = await getAccountCredentials();
-    const token = await getAuthToken(email, password);
-
-    const response = await fetch(`${MAIL_TM_API}/messages/${messageId}/attachment/${attachmentId}`, {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        }
-    });
-
-    if (!response.ok) return null;
-
-    const blob = await response.blob();
-    const buffer = await blob.arrayBuffer();
-
-    return {
-        name: `attachment_${attachmentId}.bin`,
-        content: Buffer.from(buffer).toString('base64')  // Convert binary data to base64
+// Send Menu Function
+async function sendMenu(chatId, userId) {
+    const buttons = {
+        inline_keyboard: [
+            [{ text: "💎 Add Premium", callback_data: "/addpremium" }],
+            [{ text: "➕ Add Points", callback_data: "/addpoints" }],
+            [{ text: "🧩 Generate Points", callback_data: "/genpoints" }],
+            [{ text: "🎁 Redeem Points", callback_data: "/redeem" }],
+            [{ text: "🎯 Refer User", callback_data: `/refer ${userId}` }],
+            [{ text: "📹 Random Video", callback_data: "/video" }, { text: "📸 Random Photo", callback_data: "/photo" }]
+        ]
     };
+
+    return sendMessage(chatId, `👋 Welcome!\n\n🔹 *Premium:* ${USER_DATA[userId].premium ? "✅ Yes" : "❌ No"}\n💰 *Points:* ${USER_DATA[userId].points}`, 'Markdown', buttons);
 }
 
-// 📥 Fetch Inbox Messages
-async function getInboxMessages() {
-    const response = await fetch(`${MAIL_TM_API}/messages`);
-    const data = await response.json();
-    return data['hydra:member'];
-}
+// Send Message Function
+async function sendMessage(chatId, text, parseMode = 'Markdown', replyMarkup = null) {
+    const payload = { chat_id: chatId, text, parse_mode: parseMode };
+    if (replyMarkup) payload.reply_markup = replyMarkup;
 
-// 👤 Get Account Details
-async function getAccountDetails() {
-    const { email, password } = await getAccountCredentials();
-    const token = await getAuthToken(email, password);
-
-    const response = await fetch(`${MAIL_TM_API}/me`, {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        }
-    });
-
-    const data = await response.json();
-    return data;
-}
-
-// 🔐 Get Auth Token for Authentication
-async function getAuthToken(email, password) {
-    const response = await fetch(`${MAIL_TM_API}/token`, {
+    await fetch(`${BASE_URL}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: email, password: password })
+        body: JSON.stringify(payload)
     });
-
-    const data = await response.json();
-    return data.token;
 }
 
-// 🔒 Store Account Credentials (Temporary Storage)
-const accountStorage = {};
+// Send Media (Photo/Video) Function
+async function sendMedia(chatId, mediaUrl, caption) {
+    const payload = {
+        chat_id: chatId,
+        video: mediaUrl,
+        caption: caption,
+        parse_mode: "Markdown"
+    };
 
-async function saveAccountCredentials(id, email, password) {
-    accountStorage['account'] = { id, email, password };
-}
-
-async function getAccountCredentials() {
-    return accountStorage['account'] || {};
-}
-
-// 📲 Send Telegram Message
-async function sendTelegramMessage(chatId, text) {
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+    await fetch(`${BASE_URL}/sendVideo`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            chat_id: chatId,
-            text: text,
-            parse_mode: 'Markdown'
-        })
-    });
-}
-
-// 📄 Send Telegram Document
-async function sendDocument(chatId, attachment) {
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendDocument`, {
-        method: 'POST',
-        body: JSON.stringify({
-            chat_id: chatId,
-            document: `data:application/octet-stream;base64,${attachment.content}`,
-            caption: `📎 Attachment: ${attachment.name}`
-        }),
-        headers: { 'Content-Type': 'application/json' }
+        body: JSON.stringify(payload)
     });
 }
 
