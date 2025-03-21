@@ -13,7 +13,6 @@ async function handleRequest(request) {
       const chatId = update.message.chat.id;
       const text = update.message.text;
       
-      // Handle different commands
       switch (text) {
         case '/start':
           const welcomeMessage = `
@@ -29,9 +28,25 @@ Use /help to see available commands
           
         case '/help':
           const helpMessage = `
-Available commands:
-/start - Start the bot
-/help - Show this help message
+Your gateway to adult content for 18+ users.
+
+📋 User Commands:
+👉 /start - Start the bot
+👉 /tutorial - Watch Tutorial Videos
+👉 /video 🎥 - Get a random video
+👉 /photo 📸 - Get a random photo
+👉 /points 🏅 - Check your points balance
+👉 /daily 🎁 - Claim your daily bonus points
+👉 /refer 🔗 - Generate your referral link
+👉 /referral 👥 - Check your referral stats
+👉 /buy 💰 - Purchase points from the owner
+👉 /top 🏆 - View the top 10 users
+👉 /profile 👤 - View your profile details
+👉 /sendpoints ✉️ - Send points to another user
+👉 /redeem 🔑 - Redeem a token for points
+
+🛠 Admin Commands: (Owner Only)
+🔧 /admin - View admin commands
           `;
           await sendMessage(chatId, helpMessage);
           break;
@@ -55,7 +70,7 @@ async function sendMessage(chatId, text) {
     body: JSON.stringify({
       chat_id: chatId,
       text: text,
-      parse_mode: 'Markdown' // Optional: enables bold text with ** or __
+      parse_mode: 'Markdown' // Enables emoji and basic formatting
     })
   });
 }
