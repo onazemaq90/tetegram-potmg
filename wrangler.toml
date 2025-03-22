@@ -1,6 +1,14 @@
-name = "tetegram-potmg"
-main = "worker.js"
-compatibility_date = "2025-02-12"
+name = "telegram-bot"  # Changed to a descriptive name
+main = "worker.js"     # Kept as is, assuming your code is in worker.js
+compatibility_date = "2025-03-22"  # Updated to current date based on system info (March 22, 2025)
 
-[build]
-upload.format = "modules"
+# Removed [build] section as it's not needed for modern Workers with ES modules
+# The default behavior now assumes ES modules, making upload.format unnecessary
+
+# Added KV namespace bindings for all the storage we’re using
+kv_namespaces = [
+  { binding = "USER_POINTS", id = "da8aad782a4e4f9eb9663197fe41937c" },
+  { binding = "USER_REFERRALS", id = "da8aad782a4e4f9eb9663197fe41937c" },
+  { binding = "TOP_USERS", id = "da8aad782a4e4f9eb9663197fe41937c" },
+  { binding = "USER_DATA", id = "da8aad782a4e4f9eb9663197fe41937c" }
+]
