@@ -21,7 +21,7 @@ async function handleRequest(request) {
   const options = {
     method: 'GET',
     headers: {
-      'x-rapidapi-key': 'YOUR_API_KEY_HERE', // Replace with your actual API key
+      'x-rapidapi-key': 'c7e2fc48e0msh077ba9d1e502feep11ddcbjsn4653c738de70', // Replace with your actual API key
       'x-rapidapi-host': 'terabox-downloader-tool.p.rapidapi.com'
     }
   };
