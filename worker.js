@@ -1,4 +1,4 @@
-const TELEGRAM_TOKEN = '7286429810:AAGZ4Ban1Q5jh7DH_FKg_ROgMndXpwkpRO4';
+const TELEGRAM_TOKEN = '7286429810:AAFBRan5i76hT2tlbxzpjFYwJKRQhLh5kPY';
 const BASE_URL = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 
 async function handleRequest(request) {
