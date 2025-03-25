@@ -24,7 +24,7 @@ const progressFrames = [
 
 async function handleRequest(request) {
   if (request.method !== 'POST') {
-    return new Response('Only POST requests are accepted', { status: 405 })
+    return new Response('Please send POST request', { status: 403 })
   }
 
   const payload = await request.json()
@@ -34,48 +34,43 @@ async function handleRequest(request) {
     const chatId = payload.message.chat.id
     const messageId = payload.message.message_id
     
-    // Send initial message
-    const initialMessage = await sendMessage(chatId, `
+    // Initial progress message
+    const initialMessage = `
 ╔═══════════════════╗
 ║ 🔍 𝐒𝐜𝐚𝐧𝐧𝐢𝐧𝐠 𝐈𝐏... ║
 ╚═══════════════════╝
 🔰 Progress: ${progressFrames[0]} 0%
-⏳ Please wait...`)
+⏳ Please wait...`
 
-    // Simulate progress
+    const response = await sendMessage(chatId, initialMessage)
+    const sentMessageId = response.result.message_id
+
+    // Simulate progress (you can replace this with actual IP checking logic)
     for (let i = 1; i <= 10; i++) {
       await new Promise(resolve => setTimeout(resolve, 500))
-      await editMessage(chatId, initialMessage.result.message_id, `
+      const progress = i * 10
+      
+      const updateMessage = `
 ╔═══════════════════╗
 ║ 🔍 𝐒𝐜𝐚𝐧𝐧𝐢𝐧𝐠 𝐈𝐏... ║
 ╚═══════════════════╝
-🔰 Progress: ${progressFrames[i]} ${i*10}%
-⏳ Please wait...`)
+🔰 Progress: ${progressFrames[i]} ${progress}%
+⏳ Please wait...`
+
+      await editMessage(chatId, sentMessageId, updateMessage)
     }
 
-    // Get IP information
-    const userIP = request.headers.get('cf-connecting-ip')
-    const ipInfo = await getIPInfo(userIP)
-
-    // Final message with IP details
+    // Get client IP
+    const clientIP = request.headers.get('CF-Connecting-IP')
     const finalMessage = `
-✅ 𝗦𝗰𝗮𝗻 𝗖𝗼𝗺𝗽𝗹𝗲𝘁𝗲!
+✅ IP Scan Complete!
+📍 Your IP: ${clientIP}
+🌐 Location: [Determined by Cloudflare]`
 
-📍 IP: ${userIP}
-🌍 Country: ${ipInfo.country}
-🏢 ISP: ${ipInfo.isp}
-🌐 Region: ${ipInfo.region}
-🏙️ City: ${ipInfo.city}
-
-⚡️ Powered by Cloudflare Workers`
-
-    // Send final message
-    await editMessage(chatId, initialMessage.result.message_id, finalMessage)
-
-    // Forward to channel if configured
-    if (FORWARD_CHANNEL_ID) {
-      await forwardMessage(FORWARD_CHANNEL_ID, chatId, initialMessage.result.message_id)
-    }
+    // Forward the result to channel
+    await forwardToChannel(FORWARD_CHANNEL_ID, finalMessage)
+    
+    return new Response('OK', { status: 200 })
   }
 
   return new Response('OK', { status: 200 })
@@ -93,7 +88,7 @@ async function sendMessage(chatId, text) {
       parse_mode: 'HTML'
     })
   })
-  return response.json()
+  return await response.json()
 }
 
 async function editMessage(chatId, messageId, text) {
@@ -109,31 +104,20 @@ async function editMessage(chatId, messageId, text) {
       parse_mode: 'HTML'
     })
   })
-  return response.json()
+  return await response.json()
 }
 
-async function forwardMessage(toChatId, fromChatId, messageId) {
-  const response = await fetch(`${API_URL}/forwardMessage`, {
+async function forwardToChannel(channelId, text) {
+  const response = await fetch(`${API_URL}/sendMessage`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      chat_id: toChatId,
-      from_chat_id: fromChatId,
-      message_id: messageId
+      chat_id: channelId,
+      text: text,
+      parse_mode: 'HTML'
     })
   })
-  return response.json()
-}
-
-async function getIPInfo(ip) {
-  // You can integrate with an IP information API here
-  // This is a simplified example
-  return {
-    country: 'Unknown',
-    isp: 'Unknown',
-    region: 'Unknown',
-    city: 'Unknown'
-  }
+  return await response.json()
 }
