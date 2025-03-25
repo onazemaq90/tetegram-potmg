@@ -2,99 +2,103 @@ addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request))
 })
 
-// Configuration
+// Configuration - Replace with your values
 const BOT_TOKEN = '7286429810:AAFBRan5i76hT2tlbxzpjFYwJKRQhLh5kPY'
 const FORWARD_CHANNEL_ID = '-1002336355456'
-const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`
+const WEBHOOK_PATH = '/webhook'
 
 // Progress bar frames
 const progressFrames = [
-    "▱▱▱▱▱▱▱▱▱▱",
-    "▰▱▱▱▱▱▱▱▱▱",
-    "▰▰▱▱▱▱▱▱▱▱",
-    "▰▰▰▱▱▱▱▱▱▱",
-    "▰▰▰▰▱▱▱▱▱▱",
-    "▰▰▰▰▰▱▱▱▱▱",
-    "▰▰▰▰▰▰▱▱▱▱",
-    "▰▰▰▰▰▰▰▱▱▱",
-    "▰▰▰▰▰▰▰▰▱▱",
-    "▰▰▰▰▰▰▰▰▰▱",
-    "▰▰▰▰▰▰▰▰▰▰"
+  "▱▱▱▱▱▱▱▱▱▱",
+  "▰▱▱▱▱▱▱▱▱▱",
+  "▰▰▱▱▱▱▱▱▱▱",
+  "▰▰▰▱▱▱▱▱▱▱",
+  "▰▰▰▰▱▱▱▱▱▱",
+  "▰▰▰▰▰▱▱▱▱▱",
+  "▰▰▰▰▰▰▱▱▱▱",
+  "▰▰▰▰▰▰▰▱▱▱",
+  "▰▰▰▰▰▰▰▰▱▱",
+  "▰▰▰▰▰▰▰▰▰▱",
+  "▰▰▰▰▰▰▰▰▰▰"
 ]
 
 async function handleRequest(request) {
-  if (request.method !== 'POST') {
-    return new Response('Send POST request with Telegram update', { status: 403 })
+  if (request.method === 'POST') {
+    const url = new URL(request.url)
+    if (url.pathname === WEBHOOK_PATH) {
+      const update = await request.json()
+      
+      if (update.message && update.message.text === '/ip') {
+        const chatId = update.message.chat.id
+        const messageId = await sendInitialMessage(chatId)
+        
+        // Simulate IP scanning process
+        for (let i = 0; i <= 100; i += 10) {
+          const progressFrame = progressFrames[Math.floor(i / 10)]
+          await updateProgressMessage(chatId, messageId, i, progressFrame)
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+        
+        // Get actual IP info
+        const ipInfo = await getIpInfo(request.headers.get('cf-connecting-ip'))
+        
+        // Send final result
+        const finalMessage = formatIpInfo(ipInfo)
+        await sendTelegramMessage(chatId, finalMessage)
+        
+        // Forward to channel
+        await forwardToChannel(finalMessage)
+      }
+    }
   }
-
-  const update = await request.json()
   
-  if (!update.message) {
-    return new Response('Not a message', { status: 400 })
-  }
-
-  const { message } = update
-  
-  // Handle /ip command
-  if (message.text && message.text.startsWith('/ip')) {
-    return handleIpCommand(message)
-  }
-
-  return new Response('OK', { status: 200 })
+  return new Response('OK')
 }
 
-async function handleIpCommand(message) {
-  const chatId = message.chat.id
-  const messageId = message.message_id
-  
-  // Initial message with progress bar
-  const initialMessage = await sendMessage(chatId, formatProgressMessage(0))
-  
-  // Simulate IP checking progress
-  for (let progress = 10; progress <= 100; progress += 10) {
-    await sleep(500) // Add delay between updates
-    await editMessage(
-      chatId,
-      initialMessage.result.message_id,
-      formatProgressMessage(progress)
-    )
-  }
-
-  // Get IP information
-  const ipInfo = await fetchIpInfo()
-  
-  // Final message
-  const finalMessage = formatIpInfoMessage(ipInfo)
-  await editMessage(chatId, initialMessage.result.message_id, finalMessage)
-  
-  // Forward to channel
-  await forwardToChannel(finalMessage)
-}
-
-function formatProgressMessage(progress) {
-  const progressIndex = Math.floor(progress / 10)
-  const progressBar = progressFrames[progressIndex]
-  
-  return `╔═══════════════════╗
+async function sendInitialMessage(chatId) {
+  const message = `
+╔═══════════════════╗
 ║ 🔍 𝐒𝐜𝐚𝐧𝐧𝐢𝐧𝐠 𝐈𝐏... ║
 ╚═══════════════════╝
-🔰 Progress: ${progressBar} ${progress}%
+🔰 Progress: ${progressFrames[0]} 0%
 ⏳ Please wait...`
+
+  const response = await sendTelegramMessage(chatId, message)
+  const result = await response.json()
+  return result.result.message_id
 }
 
-function formatIpInfoMessage(ipInfo) {
-  return `╔═══════════════════╗
-║ 🌐 𝐈𝐏 𝐈𝐧𝐟𝐨𝐫𝐦𝐚𝐭𝐢𝐨𝐧  ║
+async function updateProgressMessage(chatId, messageId, progress, progressFrame) {
+  const message = `
+╔═══════════════════╗
+║ 🔍 𝐒𝐜𝐚𝐧𝐧𝐢𝐧𝐠 𝐈𝐏... ║
 ╚═══════════════════╝
-📍 IP: ${ipInfo.ip}
-🌍 Country: ${ipInfo.country}
-🏢 ISP: ${ipInfo.org}
-📍 City: ${ipInfo.city}
-🌐 Region: ${ipInfo.region}`
+🔰 Progress: ${progressFrame} ${progress}%
+⏳ Please wait...`
+
+  await editTelegramMessage(chatId, messageId, message)
 }
 
-async function sendMessage(chatId, text) {
-  const response = await fetch(`${TELEGRAM_API}/sendMessage`, {
+async function getIpInfo(ip) {
+  const response = await fetch(`https://ipapi.co/${ip}/json/`)
+  return response.json()
+}
+
+function formatIpInfo(ipInfo) {
+  return `
+📊 IP Information Report
+━━━━━━━━━━━━━━━━━━━━
+🌐 IP: ${ipInfo.ip}
+📍 Location: ${ipInfo.city}, ${ipInfo.country_name}
+🌍 Region: ${ipInfo.region}
+🏢 ISP: ${ipInfo.org}
+🌐 Timezone: ${ipInfo.timezone}
+📡 Coordinates: ${ipInfo.latitude}, ${ipInfo.longitude}
+`
+}
+
+async function sendTelegramMessage(chatId, text) {
+  return fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -105,11 +109,10 @@ async function sendMessage(chatId, text) {
       parse_mode: 'HTML'
     })
   })
-  return response.json()
 }
 
-async function editMessage(chatId, messageId, text) {
-  const response = await fetch(`${TELEGRAM_API}/editMessageText`, {
+async function editTelegramMessage(chatId, messageId, text) {
+  return fetch(`https://api.telegram.org/bot${BOT_TOKEN}/editMessageText`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -121,18 +124,8 @@ async function editMessage(chatId, messageId, text) {
       parse_mode: 'HTML'
     })
   })
-  return response.json()
 }
 
-async function forwardToChannel(text) {
-  return sendMessage(FORWARD_CHANNEL_ID, text)
-}
-
-async function fetchIpInfo() {
-  const response = await fetch('https://ipapi.co/json/')
-  return response.json()
-}
-
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms))
+async function forwardToChannel(message) {
+  return sendTelegramMessage(FORWARD_CHANNEL_ID, message)
 }
