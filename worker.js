@@ -4,15 +4,17 @@ addEventListener('fetch', event => {
 })
 
 async function handleRequest(request) {
-  // Define API options
+  const url = new URL(request.url)
+  const bin = url.searchParams.get('bin') || '448590'  // Default to 448590
+  
   const options = {
     method: 'POST',
     headers: {
-      'x-rapidapi-key': 'c7e2fc48e0msh077ba9d1e502feep11ddcbjsn4653c738de70',
+      'x-rapidapi-key': RAPIDAPI_KEY,
       'x-rapidapi-host': 'bin-ip-checker.p.rapidapi.com',
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ bin: '448590' })
+    body: JSON.stringify({ bin: bin })
   }
 
   try {
