@@ -1,37 +1,42 @@
-// worker.js
-addEventListener('fetch', event => {
-  event.respondWith(handleRequest(event.request))
-})
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+    const bin = url.searchParams.get('bin');
+    const ip = url.searchParams.get('ip');
 
-async function handleRequest(request) {
-  const url = new URL(request.url)
-  const bin = url.searchParams.get('bin') || '448590'  // Default to 448590
-  
-  const options = {
-    method: 'POST',
-    headers: {
-      'x-rapidapi-key': RAPIDAPI_KEY,
-      'x-rapidapi-host': 'bin-ip-checker.p.rapidapi.com',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ bin: bin })
-  }
+    if (!bin && !ip) {
+      return new Response(JSON.stringify({ error: "Provide either ?bin= or ?ip=" }), {
+        headers: { "Content-Type": "application/json" },
+        status: 400
+      });
+    }
 
-  try {
-    // Make the API request
-    const response = await fetch('https://bin-ip-checker.p.rapidapi.com/?bin=448590', options)
-    const data = await response.json()
-    
-    // Return response to client
-    return new Response(JSON.stringify(data), {
-      headers: { 'content-type': 'application/json' },
-      status: 200
-    })
-  } catch (error) {
-    // Error handling
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { 'content-type': 'application/json' },
-      status: 500
-    })
+    const rapidApiUrl = "https://bin-ip-checker.p.rapidapi.com/";
+    const rapidApiKey = "c7e2fc48e0msh077ba9d1e502feep11ddcbjsn4653c738de70"; // Replace with your API key
+
+    const options = {
+      method: 'POST',
+      headers: {
+        'x-rapidapi-key': rapidApiKey,
+        'x-rapidapi-host': 'bin-ip-checker.p.rapidapi.com',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ bin: bin || '', ip: ip || '' })
+    };
+
+    try {
+      const response = await fetch(rapidApiUrl, options);
+      const data = await response.json();
+
+      return new Response(JSON.stringify(data), {
+        headers: { "Content-Type": "application/json" }
+      });
+
+    } catch (error) {
+      return new Response(JSON.stringify({ error: "API request failed", details: error.message }), {
+        headers: { "Content-Type": "application/json" },
+        status: 500
+      });
+    }
   }
-}
+};
