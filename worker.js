@@ -1,51 +1,35 @@
-// Cloudflare Worker script
+// worker.js
 addEventListener('fetch', event => {
-  event.respondWith(handleRequest(event.request));
-});
+  event.respondWith(handleRequest(event.request))
+})
 
 async function handleRequest(request) {
-  // Get URL parameters
-  const urlParams = new URL(request.url);
-  const targetUrl = urlParams.searchParams.get('url'); // Gets the ?url= parameter
-
-  // Check if URL parameter exists
-  if (!targetUrl) {
-    return new Response('Please provide a URL parameter (?url=)', {
-      status: 400,
-      headers: { 'Content-Type': 'text/plain' }
-    });
+  // Define API options
+  const options = {
+    method: 'POST',
+    headers: {
+      'x-rapidapi-key': 'c7e2fc48e0msh077ba9d1e502feep11ddcbjsn4653c738de70',
+      'x-rapidapi-host': 'bin-ip-checker.p.rapidapi.com',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ bin: '448590' })
   }
 
-  // API configuration
-  const apiUrl = 'https://terabox-downloader-tool.p.rapidapi.com/api';
-  const options = {
-    method: 'GET',
-    headers: {
-      'x-rapidapi-key': 'c7e2fc48e0msh077ba9d1e502feep11ddcbjsn4653c738de70', // Replace with your actual API key
-      'x-rapidapi-host': 'terabox-downloader-tool.p.rapidapi.com'
-    }
-  };
-
   try {
-    // Modify the API URL to include the target URL as a parameter
-    const fullUrl = `${apiUrl}?url=${encodeURIComponent(targetUrl)}`;
-    
     // Make the API request
-    const response = await fetch(fullUrl, options);
-    const result = await response.text();
+    const response = await fetch('https://bin-ip-checker.p.rapidapi.com/?bin=448590', options)
+    const data = await response.json()
     
-    // Return the response
-    return new Response(result, {
-      status: 200,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*' // Optional: for CORS
-      }
-    });
+    // Return response to client
+    return new Response(JSON.stringify(data), {
+      headers: { 'content-type': 'application/json' },
+      status: 200
+    })
   } catch (error) {
-    return new Response(`Error: ${error.message}`, {
-      status: 500,
-      headers: { 'Content-Type': 'text/plain' }
-    });
+    // Error handling
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { 'content-type': 'application/json' },
+      status: 500
+    })
   }
 }
