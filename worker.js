@@ -1,164 +1,121 @@
-const TELEGRAM_TOKEN = '7286429810:AAFBRan5i76hT2tlbxzpjFYwJKRQhLh5kPY';  // Use Cloudflare Environment Variable
-const BASE_URL = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
-
 addEventListener('fetch', event => {
-    event.respondWith(handleRequest(event.request));
-});
+  event.respondWith(handleRequest(event.request))
+})
+
+// Configuration
+const BOT_TOKEN = '7286429810:AAFBRan5i76hT2tlbxzpjFYwJKRQhLh5kPY' // Replace with your Telegram bot token
+const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`
+
+// Progress bar frames
+const progressFrames = [
+  "▱▱▱▱▱▱▱▱▱▱",
+  "▰▱▱▱▱▱▱▱▱▱",
+  "▰▰▱▱▱▱▱▱▱▱",
+  "▰▰▰▱▱▱▱▱▱▱",
+  "▰▰▰▰▱▱▱▱▱▱",
+  "▰▰▰▰▰▱▱▱▱▱",
+  "▰▰▰▰▰▰▱▱▱▱",
+  "▰▰▰▰▰▰▰▱▱▱",
+  "▰▰▰▰▰▰▰▰▱▱",
+  "▰▰▰▰▰▰▰▰▰▱",
+  "▰▰▰▰▰▰▰▰▰▰"
+]
 
 async function handleRequest(request) {
-    if (request.method === 'POST') {
-        const update = await request.json();
-        return handleUpdate(update);
-    }
-    return new Response('OK');
+  if (request.method !== 'POST') {
+    return new Response('Only POST requests are accepted', { status: 405 })
+  }
+
+  const payload = await request.json()
+  
+  if (!payload.message || !payload.message.text) {
+    return new Response('No message text found', { status: 400 })
+  }
+
+  const { message } = payload
+  const { chat: { id: chatId }, text } = message
+
+  // Handle /ip command
+  if (text.startsWith('/ip')) {
+    const ipToCheck = text.split(' ')[1] || 'Loading...'
+    return handleIpCommand(chatId, ipToCheck)
+  }
+
+  return new Response('OK', { status: 200 })
 }
 
-async function handleUpdate(update) {
-    if (update.callback_query) {
-        return await handleCallback(update.callback_query);
-    }
+async function handleIpCommand(chatId, ip) {
+  // Initial message
+  const initialMessage = `
+╔═══════════════════╗
+║ 🔍 𝐒𝐜𝐚𝐧𝐧𝐢𝐧𝐠 𝐈𝐏... ║
+╚═══════════════════╝
+🔰 Progress: ${progressFrames[0]} 0%
+⏳ Please wait...`
 
-    if (update.message) {
-        return await handleMessage(update.message);
-    }
+  const msgResponse = await fetch(`${TELEGRAM_API}/sendMessage`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text: initialMessage,
+    }),
+  })
 
-    return new Response('OK');
-}
+  const { result: { message_id } } = await msgResponse.json()
 
-// Handle Text Messages
-async function handleMessage(message) {
-    const text = message.text;
-    const chatId = message.chat.id;
-    const user = message.from;
-
-    if (!text) return new Response('OK');
-
-    switch (text) {
-        case '/start':
-            await sendWelcomeMessage(chatId, user);
-            break;
-        case '/Commands':
-            await deleteMessage(chatId, message.message_id);
-            await sendCommandsMenu(chatId);
-            break;
-        case '/about':
-            await sendAboutMessage(chatId, user);
-            break;
-    }
-
-    return new Response('OK');
-}
-
-// Handle Callback Queries
-async function handleCallback(callback) {
-    const data = callback.data;
-    const chatId = callback.message.chat.id;
-    const messageId = callback.message.message_id;
-
-    switch (data) {
-        case '/Commands':
-            await deleteMessage(chatId, messageId);
-            await sendCommandsMenu(chatId);
-            break;
-        case '/black':
-            await deleteMessage(chatId, messageId);
-            await sendGatewayMessage(chatId);
-            break;
-        case '/tools':
-            await deleteMessage(chatId, messageId);
-            await sendToolsMessage(chatId);
-            break;
-    }
-
-    return new Response('OK');
-}
-
-// Send Welcome Message
-async function sendWelcomeMessage(chatId, user) {
-    const videoUrl = "https://t.me/kajal_developer/57";
-    const caption = `<b>👋 Welcome Back ${user.first_name}</b>\n\n🌥️ Bot Status: Alive 🟢\n\n💞 Dev: @LakshayDied`;
+  // Simulate progress updates
+  for (let i = 0; i <= 10; i++) {
+    await new Promise(resolve => setTimeout(resolve, 500))
     
-    const buttons = [
-        [{ text: "Commands", callback_data: "/Commands" }],
-        [{ text: "DEV", url: "https://t.me/Teleservices_Api" }]
-    ];
+    const progress = i * 10
+    const progressMessage = `
+╔═══════════════════╗
+║ 🔍 𝐒𝐜𝐚𝐧𝐧𝐢𝐧𝐠 𝐈𝐏... ║
+╚═══════════════════╝
+🔰 Progress: ${progressFrames[i]} ${progress}%
+⏳ Please wait...`
 
-    await sendVideo(chatId, videoUrl, caption, buttons);
-}
+    await fetch(`${TELEGRAM_API}/editMessageText`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: chatId,
+        message_id: message_id,
+        text: progressMessage,
+      }),
+    })
+  }
 
-// Send Commands Menu
-async function sendCommandsMenu(chatId) {
-    const videoUrl = "https://t.me/kajal_developer/57";
-    const caption = `<b>[𖤐] XS Developer :</b>\n\n<b>[ϟ] Current Gateways And Tools :</b>\n\n<b>[ᛟ] Charge - 0</b>\n<b>[ᛟ] Auth - 0</b>\n<b>[ᛟ] Tools - 2</b>`;
-    
-    const buttons = [
-        [
-            { text: "Gateways", callback_data: "/black" },
-            { text: "Tools", callback_data: "/tools" }
-        ],
-        [
-            { text: "Channel", url: "https://t.me/Teleservices_Api" },
-            { text: "DEV", url: "https://t.me/Teleservices_Bots" }
-        ],
-        [{ text: "◀️ Go Back", callback_data: "/black" }]
-    ];
+  // Fetch IP information
+  const ipInfo = await fetch(`https://ipapi.co/${ip}/json/`).then(r => r.json())
 
-    await sendVideo(chatId, videoUrl, caption, buttons);
-}
+  // Final result message
+  const finalMessage = `
+✅ IP Scan Complete!
 
-// Send About Message
-async function sendAboutMessage(chatId, user) {
-    const aboutMessage = `
-<b><blockquote>⍟───[ MY DETAILS ]───⍟</blockquote>
+📍 IP: ${ipInfo.ip}
+🌍 Country: ${ipInfo.country_name}
+🏢 City: ${ipInfo.city}
+🌐 Region: ${ipInfo.region}
+📡 ISP: ${ipInfo.org}
+🗺️ Location: ${ipInfo.latitude}, ${ipInfo.longitude}
+⏰ Timezone: ${ipInfo.timezone}
+`
 
-‣ My Name: <a href="https://t.me/${user.username}">${user.first_name}</a>
-‣ Best Friend: <a href='tg://settings'>This Person</a> 
-‣ Developer: <a href='https://t.me/kingvj01'>Tech VJ</a> 
-‣ Library: JavaScript
-‣ Language: Node.js 
-‣ Database: Cloudflare KV 
-‣ Bot Server: Cloudflare Workers 
-‣ Build Status: Stable</b>`;
-
-    await sendMessage(chatId, aboutMessage);
-}
-
-// Send Video Helper Function
-async function sendVideo(chatId, video, caption, buttons) {
-    await fetch(`${BASE_URL}/sendVideo`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            chat_id: chatId,
-            video: video,
-            caption: caption,
-            parse_mode: 'HTML',
-            reply_markup: { inline_keyboard: buttons }
-        })
-    });
-}
-
-// Send Message Helper Function
-async function sendMessage(chatId, text) {
-    await fetch(`${BASE_URL}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            chat_id: chatId,
-            text: text,
-            parse_mode: 'HTML'
-        })
-    });
-}
-
-// Delete Message
-async function deleteMessage(chatId, messageId) {
-    await fetch(`${BASE_URL}/deleteMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            chat_id: chatId,
-            message_id: messageId
-        })
-    });
+  return fetch(`${TELEGRAM_API}/editMessageText`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      chat_id: chatId,
+      message_id: message_id,
+      text: finalMessage,
+    }),
+  })
 }
