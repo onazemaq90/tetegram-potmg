@@ -5,28 +5,26 @@ export default {
     const ip = url.searchParams.get("ip");
 
     if (!bin && !ip) {
-      return new Response(JSON.stringify({ error: "Missing ?bin= or ?ip= parameter" }), { status: 400 });
+      return new Response(JSON.stringify({ error: "Provide either ?bin= or ?ip=" }), { status: 400 });
     }
 
     const apiUrl = "https://bin-ip-checker.p.rapidapi.com/";
-    const headers = {
-      "x-rapidapi-key": "c7e2fc48e0msh077ba9d1e502feep11ddcbjsn4653c738de70",
-      "x-rapidapi-host": "bin-ip-checker.p.rapidapi.com",
-      "Content-Type": "application/json"
+    const apiKey = "c7e2fc48e0msh077ba9d1e502feep11ddcbjsn4653c738de70"; // Replace with your API key
+
+    const options = {
+      method: "POST",
+      headers: {
+        "x-rapidapi-key": apiKey,
+        "x-rapidapi-host": "bin-ip-checker.p.rapidapi.com",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(bin ? { bin } : { ip })
     };
 
-    const data = bin ? { bin } : { ip };
-
     try {
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(data)
-      });
-
-      const result = await response.json();
-      return new Response(JSON.stringify(result), { status: 200, headers: { "Content-Type": "application/json" } });
-
+      const response = await fetch(apiUrl, options);
+      const data = await response.json();
+      return new Response(JSON.stringify(data), { status: response.status });
     } catch (error) {
       return new Response(JSON.stringify({ error: "API request failed" }), { status: 500 });
     }
