@@ -12,12 +12,12 @@ export default {
     }
 
     const rapidApiUrl = "https://bin-ip-checker.p.rapidapi.com/";
-    const rapidApiKey = "c7e2fc48e0msh077ba9d1e502feep11ddcbjsn4653c738de70"; // Replace with your API key
+     
 
     const options = {
       method: 'POST',
       headers: {
-        'x-rapidapi-key': rapidApiKey,
+        'x-rapidapi-key': 'c7e2fc48e0msh077ba9d1e502feep11ddcbjsn4653c738de70',
         'x-rapidapi-host': 'bin-ip-checker.p.rapidapi.com',
         'Content-Type': 'application/json'
       },
