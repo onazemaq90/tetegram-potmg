@@ -1,57 +1,51 @@
-export default {
-  async fetch(request) {
-    const TOKEN = '7286429810:AAFBRan5i76hT2tlbxzpjFYwJKRQhLh5kPY'; // Replace with your bot token
-    const API_URL = `https://api.telegram.org/bot${TOKEN}`;
-    const VERCEL_API = 'https://pinterest-downloader-three.vercel.app/api/download'; // Update your Vercel API URL
+// Cloudflare Worker script
+addEventListener('fetch', event => {
+  event.respondWith(handleRequest(event.request));
+});
 
-    if (request.method === 'POST') {
-      const update = await request.json();
-      
-      if (update.message) {
-        const chatId = update.message.chat.id;
-        const text = update.message.text;
+async function handleRequest(request) {
+  // Get URL parameters
+  const urlParams = new URL(request.url);
+  const targetUrl = urlParams.searchParams.get('url'); // Gets the ?url= parameter
 
-        if (text && text.startsWith('http')) {
-          await sendMessage(chatId, '🔄 Downloading your file... Please wait.');
-
-          try {
-            // Call the Vercel API to download media
-            const response = await fetch(`${VERCEL_API}?url=${encodeURIComponent(text)}`);
-            const data = await response.json();
-
-            if (data.success && data.url) {
-              // Send the downloaded file back to the user
-              await sendMedia(chatId, data.url, data.type);
-            } else {
-              await sendMessage(chatId, '❌ Failed to download. Please check the URL.');
-            }
-          } catch (error) {
-            await sendMessage(chatId, '⚠️ Error processing your request.');
-          }
-        } else {
-          await sendMessage(chatId, '📩 Send me a video or image link to download.');
-        }
-      }
-
-      return new Response('OK', { status: 200 });
-    }
-    return new Response('Invalid Request', { status: 400 });
-    
-    async function sendMessage(chatId, text) {
-      await fetch(`${API_URL}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, text })
-      });
-    }
-
-    async function sendMedia(chatId, fileUrl, type) {
-      const endpoint = type === 'video' ? 'sendVideo' : 'sendPhoto';
-      await fetch(`${API_URL}/${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, [type === 'video' ? 'video' : 'photo']: fileUrl })
-      });
-    }
+  // Check if URL parameter exists
+  if (!targetUrl) {
+    return new Response('Please provide a URL parameter (?url=)', {
+      status: 400,
+      headers: { 'Content-Type': 'text/plain' }
+    });
   }
-};
+
+  // API configuration
+  const apiUrl = 'https://terabox-downloader-tool.p.rapidapi.com/api';
+  const options = {
+    method: 'GET',
+    headers: {
+      'x-rapidapi-key': 'YOUR_API_KEY_HERE', // Replace with your actual API key
+      'x-rapidapi-host': 'terabox-downloader-tool.p.rapidapi.com'
+    }
+  };
+
+  try {
+    // Modify the API URL to include the target URL as a parameter
+    const fullUrl = `${apiUrl}?url=${encodeURIComponent(targetUrl)}`;
+    
+    // Make the API request
+    const response = await fetch(fullUrl, options);
+    const result = await response.text();
+    
+    // Return the response
+    return new Response(result, {
+      status: 200,
+      headers: { 
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*' // Optional: for CORS
+      }
+    });
+  } catch (error) {
+    return new Response(`Error: ${error.message}`, {
+      status: 500,
+      headers: { 'Content-Type': 'text/plain' }
+    });
+  }
+}
