@@ -1,4 +1,5 @@
-// Telegram bot token from @BotFather
+// Telegram bot token from @.
+
 const TELEGRAM_BOT_TOKEN = '7286429810:AAFBRan5i76hT2tlbxzpjFYwJKRQhLh5kPY';
 
 // Handle incoming requests
@@ -33,12 +34,12 @@ async function handleTelegramUpdate(update) {
     responseText += `Latitude: ${location.latitude}\n`;
     responseText += `Longitude: ${location.longitude}\n\n`;
     responseText += `🌍 Approximate IP Information:\n`;
-    responseText += `IP: ${ipInfo.query || 'N/A'}\n`;
-    responseText += `Country: ${ipInfo.country || 'N/A'}\n`;
-    responseText += `Region: ${ipInfo.regionName || 'N/A'}\n`;
-    responseText += `City: ${ipInfo.city || 'N/A'}\n`;
-    responseText += `ISP: ${ipInfo.isp || 'N/A'}\n`;
-    responseText += `Organization: ${ipInfo.org || 'N/A'}`;
+    responseText += `IP: ${ipInfo.query}\n`;
+    responseText += `Country: ${ipInfo.country}\n`;
+    responseText += `Region: ${ipInfo.regionName}\n`;
+    responseText += `City: ${ipInfo.city}\n`;
+    responseText += `ISP: ${ipInfo.isp}\n`;
+    responseText += `Organization: ${ipInfo.org}`;
     
     // Send response back to Telegram
     await sendTelegramMessage(chatId, responseText);
@@ -55,13 +56,13 @@ async function handleTelegramUpdate(update) {
       const ipInfo = await getIPGeolocation(text);
       
       let responseText = `🔍 IP Information for ${text}:\n`;
-      responseText += `Country: ${ipInfo.country || 'N/A'}\n`;
-      responseText += `Region: ${ipInfo.regionName || 'N/A'}\n`;
-      responseText += `City: ${ipInfo.city || 'N/A'}\n`;
-      responseText += `ZIP: ${ipInfo.zip || 'N/A'}\n`;
-      responseText += `Lat/Lon: ${ipInfo.lat || 'N/A'}, ${ipInfo.lon || 'N/A'}\n`;
-      responseText += `ISP: ${ipInfo.isp || 'N/A'}\n`;
-      responseText += `Organization: ${ipInfo.org || 'N/A'}`;
+      responseText += `Country: ${ipInfo.country}\n`;
+      responseText += `Region: ${ipInfo.regionName}\n`;
+      responseText += `City: ${ipInfo.city}\n`;
+      responseText += `ZIP: ${ipInfo.zip}\n`;
+      responseText += `Lat/Lon: ${ipInfo.lat}, ${ipInfo.lon}\n`;
+      responseText += `ISP: ${ipInfo.isp}\n`;
+      responseText += `Organization: ${ipInfo.org}`;
       
       await sendTelegramMessage(chatId, responseText);
       
