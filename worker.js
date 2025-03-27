@@ -1,7 +1,9 @@
-// Cloudflare Worker Telegram IP Check Bot
+// Cloudflare Worker Telegram Bot for IP checking with map location
+
 const TELEGRAM_BOT_TOKEN = '7286429810:AAFBRan5i76hT2tlbxzpjFYwJKRQhLh5kPY';
 const IP_API_URL = 'http://ip-api.com/json/';
 
+// Handle incoming requests
 addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request));
 });
@@ -10,112 +12,77 @@ async function handleRequest(request) {
   if (request.method === 'POST') {
     try {
       const update = await request.json();
-      if (update.message) {
-        await handleMessage(update.message);
-      }
-      return new Response('OK');
+      return handleTelegramUpdate(update);
     } catch (error) {
       return new Response('Error processing request', { status: 500 });
     }
   }
-  return new Response('Not found', { status: 404 });
+  return new Response('Method not allowed', { status: 405 });
 }
 
-async function handleMessage(message) {
+async function handleTelegramUpdate(update) {
+  // Check if the update contains a message with text
+  if (!update.message || !update.message.text) {
+    return new Response('OK');
+  }
+
+  const message = update.message;
   const chatId = message.chat.id;
-  const text = message.text || '';
-  
-  if (text.startsWith('/start')) {
-    await sendMessage(chatId, 'Welcome to IP Check Bot! Send /ip [address] to check IP information.');
-  } else if (text.startsWith('/ip')) {
-    const ip = text.split(' ')[1] || '';
-    if (!ip) {
-      await sendMessage(chatId, 'Please provide an IP address. Example: /ip 8.8.8.8');
-      return;
-    }
-    
-    await sendMessage(chatId, '⏳ Please wait while I check the IP...');
-    await checkIP(chatId, ip);
-  }
-}
+  const text = message.text.trim();
 
-async function checkIP(chatId, ip) {
-  try {
-    const response = await fetch(`${IP_API_URL}${ip}?fields=status,message,continent,continentCode,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,offset,currency,isp,org,as,asname,reverse,mobile,proxy,hosting,query`);
-    const data = await response.json();
+  // Handle /ip command
+  if (text.startsWith('/ip')) {
+    // Extract IP address from command (if provided)
+    const ipAddress = text.split(' ')[1] || '';
     
-    if (data.status === 'fail') {
-      await sendMessage(chatId, `❌ Error: ${data.message}`);
-      return;
-    }
+    // Send "please wait" message
+    await sendTelegramMessage(chatId, '⏳ Please wait while we check the IP...');
     
-    // Format the response
-    let message = `🔍 IP Information for ${data.query}:\n\n`;
-    message += `📍 Location: ${data.city}, ${data.regionName}, ${data.country}\n`;
-    message += `🌐 Continent: ${data.continent} (${data.continentCode})\n`;
-    message += `🏛️ Region: ${data.regionName} (${data.region})\n`;
-    message += `📮 ZIP: ${data.zip}\n`;
-    message += `🕒 Timezone: ${data.timezone} (UTC offset: ${data.offset})\n`;
-    message += `💱 Currency: ${data.currency}\n\n`;
-    message += `🛜 ISP: ${data.isp}\n`;
-    message += `🏢 Organization: ${data.org}\n`;
-    message += `🖥️ AS: ${data.as} (${data.asname})\n\n`;
-    message += `📱 Mobile: ${data.mobile ? 'Yes' : 'No'}\n`;
-    message += `🛡️ Proxy: ${data.proxy ? 'Yes' : 'No'}\n`;
-    message += `☁️ Hosting: ${data.hosting ? 'Yes' : 'No'}\n`;
+    // Get IP information
+    const ipInfo = await getIpInfo(ipAddress);
     
-    // Send the text response
-    await sendMessage(chatId, message);
-    
-    // Send the location as a map
-    if (data.lat && data.lon) {
-      await sendLocation(chatId, data.lat, data.lon);
+    if (ipInfo.status === 'fail') {
+      await sendTelegramMessage(chatId, `❌ Error: ${ipInfo.message}`);
+    } else {
+      // Create response with map and info
+      const mapUrl = `https://maps.google.com/maps?q=${ipInfo.lat},${ipInfo.lon}&z=10`;
+      const messageText = `🌍 IP Information:\n\n` +
+                         `🔹 IP: ${ipInfo.query}\n` +
+                         `📍 Location: ${ipInfo.city}, ${ipInfo.regionName}, ${ipInfo.country}\n` +
+                         `🏢 ISP: ${ipInfo.isp}\n` +
+                         `🔄 AS: ${ipInfo.as}\n\n` +
+                         `🗺️ [View on Map](${mapUrl})`;
       
-      // Alternatively, send a static map image
-      const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${data.lat},${data.lon}&zoom=12&size=600x300&maptype=roadmap&markers=color:red%7C${data.lat},${data.lon}&key=YOUR_GOOGLE_MAPS_API_KEY`;
-      await sendPhoto(chatId, mapUrl);
+      await sendTelegramMessage(chatId, messageText, true);
     }
-    
-  } catch (error) {
-    await sendMessage(chatId, '❌ Error fetching IP information. Please try again later.');
+  } else if (text === '/start') {
+    await sendTelegramMessage(chatId, 'Welcome to IP Checker Bot! Send /ip [address] to check an IP or just /ip to check your own.');
   }
+
+  return new Response('OK');
 }
 
-// Telegram API helpers
-async function sendMessage(chatId, text) {
+async function getIpInfo(ipAddress = '') {
+  const url = ipAddress ? `${IP_API_URL}${ipAddress}` : IP_API_URL;
+  const response = await fetch(url);
+  return await response.json();
+}
+
+async function sendTelegramMessage(chatId, text, markdown = false) {
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-  await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: text,
-      parse_mode: 'Markdown'
-    })
-  });
-}
+  
+  const body = {
+    chat_id: chatId,
+    text: text,
+    parse_mode: markdown ? 'Markdown' : undefined,
+    disable_web_page_preview: !markdown
+  };
 
-async function sendLocation(chatId, lat, lon) {
-  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendLocation`;
   await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      latitude: lat,
-      longitude: lon
-    })
-  });
-}
-
-async function sendPhoto(chatId, photoUrl) {
-  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`;
-  await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      photo: photoUrl
-    })
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
   });
 }
