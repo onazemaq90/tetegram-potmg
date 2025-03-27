@@ -26,99 +26,82 @@ async function handleTelegramUpdate(update) {
 
   if (message.startsWith('/gen')) {
     const parts = message.split(' ')
-    if (parts.length < 2) {
-      await sendMessage(chatId, 'Please provide a BIN. Usage: /gen 123456', botToken)
+    if (parts.length < 3) {
+      await sendMessage(chatId, '❌ Invalid format. Use: /gen BIN AMOUNT\nExample: /gen 485199 10', botToken)
       return new Response('OK', { status: 200 })
     }
 
-    const bin = parts[1].trim()
-    if (bin.length < 6 || isNaN(bin)) {
-      await sendMessage(chatId, 'Invalid BIN. BIN must be at least 6 digits.', botToken)
+    const bin = parts[1]
+    const amount = parseInt(parts[2])
+    
+    if (isNaN(amount) || amount <= 0 || amount > 50) {
+      await sendMessage(chatId, '❌ Invalid amount. Please use between 1-50', botToken)
       return new Response('OK', { status: 200 })
     }
 
-    // Generate cards
-    const cards = generateCards(bin, 10) // Generate 10 cards
-    const binInfo = await getBinInfo(bin)
-    
-    let response = `━━━━━━━━━━━━━━━━━━━━\n`
-    response += `✅ BIN: ${bin}\n`
-    response += `🏦 Bank: ${binInfo.bank || 'Unknown'}\n`
-    response += `🌍 Country: ${binInfo.country || 'Unknown'}\n`
-    response += `💳 Type: ${binInfo.type || 'Unknown'}\n`
-    response += `━━━━━━━━━━━━━━━━━━━━\n`
-    response += `🔢 Generated Cards:\n\n`
-    
-    cards.forEach((card, index) => {
-      response += `${index+1}. ${formatCardNumber(card)}\n`
-    })
-    
-    response += `\n━━━━━━━━━━━━━━━━━━━━\n`
-    response += `ℹ️ Cards are randomly generated for testing purposes only`
+    if (bin.length < 4 || bin.length > 8) {
+      await sendMessage(chatId, '❌ Invalid BIN. Must be 4-8 digits', botToken)
+      return new Response('OK', { status: 200 })
+    }
 
-    await sendMessage(chatId, response, botToken)
+    const cards = generateCards(bin, amount)
+    const responseText = `━━ • ━━━━━━━━━━━━ • ━\n` +
+                        `✅ Generated ${amount} Cards\n` +
+                        `💳 BIN: ${bin}\n` +
+                        `━━ • ━━━━━━━━━━━━ • ━\n` +
+                        `${cards.join('\n')}\n` +
+                        `━━ • ━━━━━━━━━━━━ • ━\n` +
+                        `ℹ️ Info: Bank - [UNKNOWN]\n` +
+                        `Country - [UNKNOWN]`
+
+    await sendMessage(chatId, responseText, botToken)
   } else if (message === '/start') {
-    await sendMessage(chatId, 'Welcome to the BIN Generator Bot! Send /gen 123456 to generate cards with a BIN', botToken)
+    await sendMessage(chatId, 'Welcome to the Card Generator Bot!\n\nUse /gen BIN AMOUNT to generate cards\nExample: /gen 485199 10', botToken)
   }
 
   return new Response('OK', { status: 200 })
 }
 
-function generateCards(bin, count) {
+function generateCards(bin, amount) {
   const cards = []
-  for (let i = 0; i < count; i++) {
+  const length = 16 - bin.length
+  
+  for (let i = 0; i < amount; i++) {
     let cardNumber = bin
-    // Generate remaining digits (16 digits total)
-    while (cardNumber.length < 15) {
+    // Generate remaining digits
+    for (let j = 0; j < length - 1; j++) {
       cardNumber += Math.floor(Math.random() * 10)
     }
     // Add Luhn check digit
-    cardNumber += calculateLuhnCheckDigit(cardNumber)
-    cards.push(cardNumber)
+    cardNumber += getLuhnCheckDigit(cardNumber)
+    
+    // Format with spaces every 4 digits
+    const formatted = cardNumber.replace(/(\d{4})(?=\d)/g, '$1 ')
+    cards.push(formatted)
   }
+  
   return cards
 }
 
-function calculateLuhnCheckDigit(partialCardNumber) {
+function getLuhnCheckDigit(number) {
   let sum = 0
-  for (let i = 0; i < partialCardNumber.length; i++) {
-    let digit = parseInt(partialCardNumber.charAt(i))
+  let alternate = false
+  
+  for (let i = number.length - 1; i >= 0; i--) {
+    let digit = parseInt(number.charAt(i))
     
-    if (i % 2 === 0) { // Double every other digit starting from first
+    if (alternate) {
       digit *= 2
-      if (digit > 9) digit -= 9
+      if (digit > 9) {
+        digit -= 9
+      }
     }
     
     sum += digit
+    alternate = !alternate
   }
+  
   return (10 - (sum % 10)) % 10
-}
-
-function formatCardNumber(cardNumber) {
-  return cardNumber.replace(/(\d{4})(?=\d)/g, '$1 ')
-}
-
-async function getBinInfo(bin) {
-  try {
-    const response = await fetch(`https://lookup.binlist.net/${bin.substring(0, 8)}`, {
-      headers: {
-        'Accept-Version': '3'
-      }
-    })
-    
-    if (!response.ok) {
-      return {}
-    }
-    
-    const data = await response.json()
-    return {
-      bank: data.bank?.name,
-      country: data.country?.name,
-      type: data.type
-    }
-  } catch (error) {
-    return {}
-  }
 }
 
 async function sendMessage(chatId, text, botToken) {
@@ -126,7 +109,7 @@ async function sendMessage(chatId, text, botToken) {
   const body = {
     chat_id: chatId,
     text: text,
-    parse_mode: 'Markdown'
+    parse_mode: 'HTML'
   }
   
   await fetch(url, {
