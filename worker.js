@@ -1,536 +1,483 @@
-const BOT_TOKEN = "7286429810:AAFBRan5i76hT2tlbxzpjFYwJKRQhLh5kPY";
-const BOT_WEBHOOK = "/endpoint";
-const BOT_SECRET = "BOT_SECRET";
-const BOT_OWNER = 7912527708;
-const BOT_CHANNEL = -1002438744271;
-const BOT_CHANNEL_USERNAME = "kajal_developer"; // Without @
-const SIA_NUMBER = 4321;
-const PUBLIC_BOT = false;
+const TELEGRAM_TOKEN = '7286429810:AAFBRan5i76hT2tlbxzpjFYwJKRQhLh5kPY';
+const BASE_URL = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 
-// HTTP Constants
-const WHITE_METHODS = ["GET", "POST", "HEAD"];
-const HEADERS_FILE = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, HEAD, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type"
-};
-const HEADERS_ERRR = {
-  'Access-Control-Allow-Origin': '*',
-  'content-type': 'application/json'
-};
-const ERROR_404 = {
-  "ok":false,"error_code":404,"description":"Bad Request: missing /?file= parameter", 
-  "credit": "https://github.com/vauth/filestream-cf"
-};
-const ERROR_405 = {"ok":false,"error_code":405,"description":"Bad Request: method not allowed"};
-const ERROR_406 = {"ok":false,"error_code":406,"description":"Bad Request: file type invalid"};
-const ERROR_407 = {"ok":false,"error_code":407,"description":"Bad Request: file hash invalid by atob"};
-const ERROR_408 = {"ok":false,"error_code":408,"description":"Bad Request: mode not in [attachment, inline]"};
+// In-memory stores
+let servedChats = new Set();
+let groupSettings = new Map();
+const SUPER_ADMIN_ID = '6490007953'; // Replace with your Telegram ID
+let admins = new Map([
+    [SUPER_ADMIN_ID, { canBroadcast: true, canReload: true }]
+]);
 
-// Main handler
-addEventListener('fetch', event => {
-    event.respondWith(handleRequest(event))
-});
-
-async function handleRequest(event) {
-    const url = new URL(event.request.url);
-    const file = url.searchParams.get('file');
-    const mode = url.searchParams.get('mode') || "attachment";
-     
-    if (url.pathname === BOT_WEBHOOK) return handleWebhook(event);
-    if (url.pathname === '/registerWebhook') return registerWebhook(event, url, BOT_WEBHOOK, BOT_SECRET);
-    if (url.pathname === '/unregisterWebhook') return unregisterWebhook(event);
-    if (url.pathname === '/getMe') return new Response(JSON.stringify(await getMe()), {headers: HEADERS_ERRR, status: 202});
-
-    if (!file) return Raise(ERROR_404, 404);
-    if (!["attachment", "inline"].includes(mode)) return Raise(ERROR_408, 404);
-    if (!WHITE_METHODS.includes(event.request.method)) return Raise(ERROR_405, 405);
-    try {atob(file)} catch {return Raise(ERROR_407, 404)}
-
-    const file_path = atob(file);
-    const channel_id = parseInt(file_path.split('/')[0])/-SIA_NUMBER;
-    const file_id = parseInt(file_path.split('/')[1])/SIA_NUMBER;
-    const retrieve = await RetrieveFile(channel_id, file_id);
-    if (retrieve.error_code) return await Raise(retrieve, retrieve.error_code);
-
-    const rdata = retrieve[0];
-    const rname = retrieve[1];
-    const rsize = retrieve[2];
-    const rtype = retrieve[3];
-
-    return new Response(rdata, {
-        status: 200, 
-        headers: {
-            "Content-Disposition": `${mode}; filename=${rname}`,
-            "Content-Length": rsize,
-            "Content-Type": rtype,
-            ...HEADERS_FILE
-        }
-    });
+// Utility function for Telegram API calls
+async function telegramApi(method, payload) {
+    try {
+        const response = await fetch(`${BASE_URL}/${method}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error(`Telegram API error: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.error(`Error in ${method}:`, error);
+        return null;
+    }
 }
 
-// Channel membership check
-async function checkChannelMembership(user_id) {
+// Main request handler
+async function handleRequest(request) {
+    if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
+    const update = await request.json();
+    return (await handleUpdate(update)) ? new Response('OK') : new Response('Error', { status: 500 });
+}
+
+// Update handler
+async function handleUpdate(update) {
     try {
-        const response = await fetch(apiUrl('getChatMember', {
-            chat_id: `@${BOT_CHANNEL_USERNAME}`,
-            user_id: user_id
-        }));
-        const result = await response.json();
-        return result.ok && (
-            result.result.status === 'member' || 
-            result.result.status === 'administrator' || 
-            result.result.status === 'creator'
-        );
-    } catch (e) {
-        console.error(e);
+        if (update.callback_query) {
+            const { data, message, from } = update.callback_query;
+            const chatId = message.chat.id;
+            const messageId = message.message_id;
+
+            if (data.startsWith('/settings_')) {
+                await handleSettingsCallback(chatId, messageId, from.id, data);
+                return true;
+            }
+
+            switch (data) {
+                case '/Commands':
+                    await deleteMessage(chatId, messageId);
+                    await sendCommandsMenu(chatId);
+                    break;
+                case '/goBack':
+                    await deleteMessage(chatId, messageId);
+                    await sendWelcomeMessage(chatId, { id: chatId, first_name: 'User' });
+                    break;
+            }
+            return true;
+        }
+
+        if (update.message) {
+            const { text, chat, from: user, reply_to_message, message_id } = update.message;
+            const chatId = chat.id;
+
+            servedChats.add(chatId);
+
+            switch (text?.split(' ')[0]) {
+                case '/start':
+                    await sendWelcomeMessage(chatId, user);
+                    break;
+                case '/Commands':
+                    await deleteMessage(chatId, message_id);
+                    await sendCommandsMenu(chatId);
+                    break;
+                case '/about':
+                    await sendAboutMessage(chatId, user);
+                    break;
+                case '/id':
+                    await sendUserProfile(chatId, user);
+                    break;
+                case '/ping':
+                    await sendPing(chatId);
+                    break;
+                case '/broadcast':
+                    if (!admins.has(user.id.toString()) || !admins.get(user.id.toString()).canBroadcast) {
+                        await telegramApi('sendMessage', { chat_id: chatId, text: '<b>⚠️ Access Denied: Only admins with broadcast privileges can use this.</b>', parse_mode: 'HTML' });
+                    } else {
+                        await handleBroadcast(chatId, user, text, reply_to_message);
+                    }
+                    break;
+                case '/close':
+                    await deleteMessage(chatId, message_id);
+                    break;
+                case '/reload':
+                    if (user.id.toString() !== SUPER_ADMIN_ID) {
+                        await telegramApi('sendMessage', { chat_id: chatId, text: '<b>⚠️ Access Denied: Only the super admin can reload.</b>', parse_mode: 'HTML' });
+                    } else {
+                        await handleReload(chatId, user);
+                    }
+                    break;
+                case '/settings':
+                    await handleSettings(chatId, user, message_id);
+                    break;
+                case '/ban':
+                    await handleBan(chatId, user, reply_to_message, message_id);
+                    break;
+                default:
+                    await sendDefaultMessage(chatId);
+            }
+            return true;
+        }
+        return true;
+    } catch (error) {
+        console.error('Update handling error:', error);
         return false;
     }
 }
 
-// File handling
-async function RetrieveFile(channel_id, message_id) {
-    let fID, fName, fType, fSize, fLen;
-    let data = await editMessage(channel_id, message_id, await UUID());
-    if (data.error_code) return data;
-    
-    if (data.document) {
-        fID = data.document.file_id;
-        fName = data.document.file_name;
-        fType = data.document.mime_type;
-        fSize = data.document.file_size;
-    } else if (data.audio) {
-        fID = data.audio.file_id;
-        fName = data.audio.file_name;
-        fType = data.audio.mime_type;
-        fSize = data.audio.file_size;
-    } else if (data.video) {
-        fID = data.video.file_id;
-        fName = data.video.file_name;
-        fType = data.video.mime_type;
-        fSize = data.video.file_size;
-    } else if (data.photo) {
-        fLen = data.photo.length - 1;
-        fID = data.photo[fLen].file_id;
-        fName = data.photo[fLen].file_unique_id + '.jpg';
-        fType = "image/jpg";
-        fSize = data.photo[fLen].file_size;
+// Message sending functions
+async function sendWelcomeMessage(chatId, user) {
+    const settings = groupSettings.get(chatId.toString()) || { welcomeEnabled: true, language: 'en' };
+    if (chatId < 0 && !settings.welcomeEnabled) return;
+
+    const videoUrl = 'https://t.me/kajal_developer/57';
+    const buttons = [
+        [{ text: '💻 Commands', callback_data: '/Commands' }],
+        [{ text: '👨‍💻 DEV', url: 'https://t.me/Teleservices_Api' }],
+        [{ text: '◀️ Go Back', callback_data: '/goBack' }]
+    ];
+    const caption = `<b>👋 Welcome Back, ${user.first_name}!</b>\n\n🌟 Bot Status: Alive 🟢\n💞 Dev: @LakshayDied`;
+
+    await telegramApi('sendVideo', {
+        chat_id: chatId,
+        video: videoUrl,
+        caption,
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: buttons }
+    });
+}
+
+async function sendCommandsMenu(chatId) {
+    const videoUrl = 'https://t.me/kajal_developer/57';
+    const buttons = [
+        [
+            { text: '🔗 Gateways', callback_data: '/black' },
+            { text: '🛠️ Tools', callback_data: '/tools' }
+        ],
+        [
+            { text: '📢 Channel', url: 'https://t.me/Teleservices_Api' },
+            { text: '👨‍💻 DEV', url: 'https://t.me/Teleservices_Bots' }
+        ],
+        [{ text: '◀️ Go Back', callback_data: '/goBack' }]
+    ];
+    const caption = `<b>[𖤐] XS Developer:</b>\n\n<b>[ϟ] Current Gateways & Tools:</b>\n<b>[ᛟ] Charge: 0</b>\n<b>[ᛟ] Auth: 0</b>\n<b>[ᛟ] Tools: 2</b>`;
+
+    await telegramApi('sendVideo', {
+        chat_id: chatId,
+        video: videoUrl,
+        caption,
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: buttons }
+    });
+}
+
+async function sendAboutMessage(chatId, user) {
+    const aboutMessage = `<b><blockquote>⍟───[ MY DETAILS ]───⍟</blockquote></b>
+‣ Name: <a href="https://t.me/${user.username || ''}">${user.first_name}</a>
+‣ Best Friend: <a href="tg://settings">This Person</a>
+‣ Developer: <a href="https://t.me/kingvj01">Tech VJ</a>
+‣ Build Status: <b>v [Stable]</b>`;
+
+    await telegramApi('sendMessage', { chat_id: chatId, text: aboutMessage, parse_mode: 'HTML' });
+}
+
+async function sendDefaultMessage(chatId) {
+    await telegramApi('sendMessage', {
+        chat_id: chatId,
+        text: '<b>⚡ Use /Commands to see available options!</b>',
+        parse_mode: 'HTML'
+    });
+}
+
+async function deleteMessage(chatId, messageId) {
+    await telegramApi('deleteMessage', { chat_id: chatId, message_id: messageId });
+}
+
+async function sendUserProfile(chatId, user) {
+    const userId = user.id;
+    const userName = user.first_name;
+    const username = user.username ? `@${user.username}` : 'Not set';
+    const userLink = user.username ? `https://t.me/${user.username}` : 'No public link';
+
+    const profilePhotos = await telegramApi('getUserProfilePhotos', { user_id: userId, limit: 1 });
+    if (profilePhotos && profilePhotos.result.total_count > 0) {
+        const photoId = profilePhotos.result.photos[0][0].file_id;
+        const caption = `
+<b>✦ ᴜsᴇʀ ɪɴғᴏ ✦</b>
+•❅─────✧❅✦❅✧─────❅•
+➻ <b>User ID:</b> <code>${userId}</code>
+➻ <b>First Name:</b> ${userName}
+➻ <b>Username:</b> ${username}
+➻ <b>Link:</b> <a href="${userLink}">${userLink}</a>
+➻ <b>Presence:</b> Online (Static)
+<b>Health:</b> 100% [■■■■■■■■■■]
+➻ <b>Common Chats:</b> Unknown
+➻ <b>Blacklisted:</b> No
+➻ <b>Malicious:</b> No
+<i>Code by @Teleservice_Assistant_bot</i>
+        `;
+        await telegramApi('sendPhoto', { chat_id: chatId, photo: photoId, caption, parse_mode: 'HTML' });
     } else {
-        return ERROR_406;
+        const text = `
+<b>✦ ᴜsᴇʀ ɪɴғᴏ ✦</b>
+•❅─────✧❅✦❅✧─────❅•
+➻ <b>User ID:</b> <code>${userId}</code>
+➻ <b>First Name:</b> ${userName}
+➻ <b>Username:</b> ${username}
+➻ <b>Link:</b> <a href="${userLink}">${userLink}</a>
+➻ <b>Presence:</b> Online (Static)
+<b>Health:</b> 100% [■■■■■■■■■■]
+➻ <b>Common Chats:</b> Unknown
+➻ <b>Blacklisted:</b> No
+➻ <b>Malicious:</b> No
+<i>No profile photo found. Code by @Teleservice_Assistant_bot</i>
+        `;
+        await telegramApi('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML' });
     }
-
-    const file = await getFile(fID);
-    if (file.error_code) return file;
-
-    return [await fetchFile(file.file_path), fName, fSize, fType];
 }
 
-// Utility functions
-async function Raise(json_error, status_code) {
-    return new Response(JSON.stringify(json_error), { 
-        headers: HEADERS_ERRR, 
-        status: status_code 
+async function sendPing(chatId) {
+    const startTime = performance.now();
+    const pingMessage = await telegramApi('sendMessage', { chat_id: chatId, text: '<b>🏓 Pinging...</b>', parse_mode: 'HTML' });
+    if (!pingMessage || !pingMessage.result) return;
+
+    const endTime = performance.now();
+    const timeTakenMs = (endTime - startTime).toFixed(3);
+    const pingText = `
+<b>🏓 Ping Results 🔥</b>
+•❅─────✧❅✦❅✧─────❅•
+➻ <b>Response Time:</b> <code>${timeTakenMs} ms</code>
+➻ <b>Status:</b> ${timeTakenMs < 100 ? '⚡ Lightning Fast' : timeTakenMs < 300 ? '🌟 Good' : '🐢 Slow'}
+➻ <b>Bot Health:</b> Alive 🟢
+<i>Powered by xAI Tech</i>
+    `;
+    await telegramApi('editMessageText', {
+        chat_id: chatId,
+        message_id: pingMessage.result.message_id,
+        text: pingText,
+        parse_mode: 'HTML'
     });
 }
 
-async function UUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-        const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
-}
-
-// Telegram webhook handlers
-async function handleWebhook(event) {
-    if (event.request.headers.get('X-Telegram-Bot-Api-Secret-Token') !== BOT_SECRET) {
-        return new Response('Unauthorized', { status: 403 });
-    }
-    const update = await event.request.json();
-    event.waitUntil(onUpdate(event, update));
-    return new Response('Ok');
-}
-
-async function registerWebhook(event, requestUrl, suffix, secret) {
-    const webhookUrl = `${requestUrl.protocol}//${requestUrl.hostname}${suffix}`;
-    const response = await fetch(apiUrl('setWebhook', { 
-        url: webhookUrl, 
-        secret_token: secret 
-    }));
-    return new Response(JSON.stringify(await response.json()), {
-        headers: HEADERS_ERRR
-    });
-}
-
-async function unregisterWebhook(event) { 
-    const response = await fetch(apiUrl('setWebhook', { url: '' }));
-    return new Response(JSON.stringify(await response.json()), {
-        headers: HEADERS_ERRR
-    });
-}
-
-// Telegram API methods
-async function getMe() {
-    const response = await fetch(apiUrl('getMe'));
-    return response.status == 200 
-        ? (await response.json()).result 
-        : await response.json();
-}
-
-async function sendMessage(chat_id, reply_id, text, reply_markup=[]) {
-    const response = await fetch(apiUrl('sendMessage', {
-        chat_id: chat_id,
-        reply_to_message_id: reply_id,
-        parse_mode: 'markdown',
-        text,
-        reply_markup: JSON.stringify({inline_keyboard: reply_markup})
-    }));
-    return response.status == 200 
-        ? (await response.json()).result 
-        : await response.json();
-}
-
-async function sendDocument(chat_id, file_id) {
-    const response = await fetch(apiUrl('sendDocument', {
-        chat_id: chat_id,
-        document: file_id
-    }));
-    return response.status == 200 
-        ? (await response.json()).result 
-        : await response.json();
-}
-
-async function sendPhoto(chat_id, file_id) {
-    const response = await fetch(apiUrl('sendPhoto', {
-        chat_id: chat_id,
-        photo: file_id
-    }));
-    return response.status == 200 
-        ? (await response.json()).result 
-        : await response.json();
-}
-
-async function editMessage(channel_id, message_id, caption_text) {
-    const response = await fetch(apiUrl('editMessageCaption', {
-        chat_id: channel_id,
-        message_id: message_id,
-        caption: caption_text
-    }));
-    return response.status == 200 
-        ? (await response.json()).result 
-        : await response.json();
-}
-
-async function getFile(file_id) {
-    const response = await fetch(apiUrl('getFile', {file_id: file_id}));
-    return response.status == 200 
-        ? (await response.json()).result 
-        : await response.json();
-}
-
-async function fetchFile(file_path) {
-    const file = await fetch(`https://api.telegram.org/file/bot${BOT_TOKEN}/${file_path}`);
-    return await file.arrayBuffer();
-}
-
-function apiUrl(methodName, params = null) {
-    let query = '';
-    if (params) query = '?' + new URLSearchParams(params).toString();
-    return `https://api.telegram.org/bot${BOT_TOKEN}/${methodName}${query}`;
-}
-
-// Update handlers
-async function onUpdate(event, update) {
-    if (update.inline_query) await onInline(event, update.inline_query);
-    if ('message' in update) await onMessage(event, update.message);
-}
-
-async function onInline(event, inline) {
-    // Skip check for public bot or owner
-    if (PUBLIC_BOT || inline.from.id == BOT_OWNER) {
-        return await processInlineQuery(inline);
-    }
-
-    // Check channel membership
-    if (!(await checkChannelMembership(inline.from.id))) {
-        const buttons = [
-            [{ text: "Join Channel", url: `https://t.me/${BOT_CHANNEL_USERNAME}` }],
-            [{ text: "Try Again", switch_inline_query_current_chat: inline.query }]
-        ];
-        return await answerInlineArticle(
-            inline.id,
-            "Channel membership required",
-            "Please join our channel to use this bot",
-            "📢 Please join our channel first to use this bot!\n\n" +
-            "After joining, try your query again.",
-            buttons
-        );
-    }
-
-    return await processInlineQuery(inline);
-}
-
-async function processInlineQuery(inline) {
-    try {
-        atob(inline.query);
-    } catch {
-        const buttons = [[{ text: "Source Code", url: "https://github.com/vauth/filestream-cf" }]];
-        return await answerInlineArticle(
-            inline.id,
-            "Error",
-            ERROR_407.description,
-            ERROR_407.description,
-            buttons
-        );
-    }
-
-    const file_path = atob(inline.query);
-    const channel_id = parseInt(file_path.split('/')[0])/-SIA_NUMBER;
-    const message_id = parseInt(file_path.split('/')[1])/SIA_NUMBER;
-    const data = await editMessage(channel_id, message_id, await UUID());
-
-    if (data.error_code) {
-        const buttons = [[{ text: "Source Code", url: "https://github.com/vauth/filestream-cf" }]];
-        return await answerInlineArticle(
-            inline.id,
-            "Error",
-            data.description,
-            data.description,
-            buttons
-        );
-    }
-
-    let fID, fName, fType;
-    if (data.document) {
-        fID = data.document.file_id;
-        fName = data.document.file_name;
-        fType = data.document.mime_type;
-    } else if (data.audio) {
-        fID = data.audio.file_id;
-        fName = data.audio.file_name;
-        fType = data.audio.mime_type;
-    } else if (data.video) {
-        fID = data.video.file_id;
-        fName = data.video.file_name;
-        fType = data.video.mime_type;
-    } else if (data.photo) {
-        const fLen = data.photo.length - 1;
-        fID = data.photo[fLen].file_id;
-        fName = data.photo[fLen].file_unique_id + '.jpg';
-        fType = "image/jpg";
+async function handleBroadcast(chatId, user, text, replyToMessage) {
+    let broadcastMessage;
+    if (replyToMessage) {
+        broadcastMessage = replyToMessage.text || replyToMessage.caption || 'Media message';
     } else {
-        return ERROR_406;
+        const messageContent = text.replace('/broadcast', '').trim();
+        if (!messageContent) {
+            await telegramApi('sendMessage', { chat_id: chatId, text: '<b>⚠️ Please provide a message or reply to one to broadcast!</b>', parse_mode: 'HTML' });
+            return;
+        }
+        broadcastMessage = messageContent;
     }
 
-    const buttons = [[{ text: "Send Again", switch_inline_query_current_chat: inline.query }]];
-    return await answerInlineDocument(inline.id, fName, fID, fType, buttons);
+    const statusMessage = await telegramApi('sendMessage', { chat_id: chatId, text: '<b>📢 Broadcasting...</b>', parse_mode: 'HTML' });
+    if (!statusMessage || !statusMessage.result) return;
+
+    let sentCount = 0, failedCount = 0;
+    for (const targetChatId of servedChats) {
+        if (targetChatId === chatId) continue;
+        const result = await telegramApi('sendMessage', { chat_id: targetChatId, text: broadcastMessage, parse_mode: 'HTML' });
+        if (result) sentCount++; else failedCount++;
+    }
+
+    const broadcastResult = `
+<b>📢 Broadcast Complete 🌐</b>
+•❅─────✧❅✦❅✧─────❅•
+➻ <b>Message:</b> <i>${broadcastMessage}</i>
+➻ <b>Sent:</b> <code>${sentCount}</code> chats
+➻ <b>Failed:</b> <code>${failedCount}</code> chats
+➻ <b>Total Chats:</b> <code>${servedChats.size}</code>
+<i>Admin: @${user.username || 'Unknown'} | Powered by xAI</i>
+    `;
+    await telegramApi('editMessageText', {
+        chat_id: chatId,
+        message_id: statusMessage.result.message_id,
+        text: broadcastResult,
+        parse_mode: 'HTML'
+    });
 }
 
-async function answerInlineArticle(query_id, title, description, text, reply_markup=[], id='1') {
-    const data = [{
-        type: 'article',
-        id: id,
-        title: title,
-        thumbnail_url: "https://i.ibb.co/5s8hhND/dac5fa134448.png",
-        description: description,
-        input_message_content: {
-            message_text: text,
-            parse_mode: 'markdown'
-        },
-        reply_markup: {
-            inline_keyboard: reply_markup
-        }
-    }];
-    const response = await fetch(apiUrl('answerInlineQuery', {
-        inline_query_id: query_id,
-        results: JSON.stringify(data),
-        cache_time: 1
-    }));
-    return response.status == 200 
-        ? (await response.json()).result 
-        : await response.json();
+async function handleReload(chatId, user) {
+    const updatedAdmins = new Map([
+        [SUPER_ADMIN_ID, { canBroadcast: true, canReload: true }],
+        ['SECOND_ADMIN_ID', { canBroadcast: true, canReload: false }],
+        ['THIRD_ADMIN_ID', { canBroadcast: false, canReload: false }]
+    ]);
+    admins = updatedAdmins;
+
+    const reloadMessage = await telegramApi('sendMessage', { chat_id: chatId, text: '<b>🔄 Reloading Admin List...</b>', parse_mode: 'HTML' });
+    if (!reloadMessage || !reloadMessage.result) return;
+
+    const reloadResult = `
+<b>🔄 Admin Reload Complete ⚡</b>
+•❅─────✧❅✦❅✧─────❅•
+➻ <b>Total Admins:</b> <code>${admins.size}</code>
+➻ <b>Super Admin:</b> <code>${SUPER_ADMIN_ID}</code>
+➻ <b>Privileges Updated:</b> ✅
+<i>Reloaded by @${user.username || 'Unknown'} | Powered by xAI</i>
+    `;
+    await telegramApi('editMessageText', {
+        chat_id: chatId,
+        message_id: reloadMessage.result.message_id,
+        text: reloadResult,
+        parse_mode: 'HTML'
+    });
 }
 
-async function answerInlineDocument(query_id, title, file_id, mime_type, reply_markup=[], id='1') {
-    const data = [{
-        type: 'document',
-        id: id,
-        title: title,
-        document_file_id: file_id,
-        mime_type: mime_type,
-        description: mime_type,
-        reply_markup: {
-            inline_keyboard: reply_markup
-        }
-    }];
-    const response = await fetch(apiUrl('answerInlineQuery', {
-        inline_query_id: query_id,
-        results: JSON.stringify(data),
-        cache_time: 1
-    }));
-    return response.status == 200 
-        ? (await response.json()).result 
-        : await response.json();
-}
-
-async function onMessage(event, message) {
-    // Skip channel messages and messages from the bot itself
-    if (message.chat.id.toString().includes("-100") || 
-        (message.via_bot && message.via_bot.username == (await getMe()).username)) {
+async function handleSettings(chatId, user, messageId) {
+    if (chatId > 0) {
+        await telegramApi('sendMessage', { chat_id: chatId, text: '<b>⚠️ /settings is only available in groups!</b>', parse_mode: 'HTML' });
         return;
     }
 
-    // Handle /start check command
-    if (message.text && message.text === "/start check") {
-        if (await checkChannelMembership(message.from.id)) {
-            return sendMessage(
-                message.chat.id, 
-                message.message_id, 
-                "✅ Thank you for joining our channel!\n\n" +
-                "You can now use all bot features."
-            );
-        } else {
-            const buttons = [
-                [{ text: "Join Channel", url: `https://t.me/${BOT_CHANNEL_USERNAME}` }],
-                [{ text: "Try Again", url: `https://t.me/${(await getMe()).username}?start=check` }]
-            ];
-            return sendMessage(
-                message.chat.id, 
-                message.message_id,
-                "❌ You haven't joined our channel yet!\n\n" +
-                "Please join first, then click 'Try Again'.",
-                buttons
-            );
-        }
+    const member = await telegramApi('getChatMember', { chat_id: chatId, user_id: user.id });
+    if (!member || !['administrator', 'creator'].includes(member.result.status)) {
+        await telegramApi('sendMessage', { chat_id: chatId, text: '<b>⚠️ Only group admins can use /settings!</b>', parse_mode: 'HTML' });
+        return;
     }
 
-    // Handle /start with file parameter
-    if (message.text && message.text.startsWith("/start ")) {
-        // Check channel membership for non-owners
-        if (!PUBLIC_BOT && message.from.id != BOT_OWNER && !(await checkChannelMembership(message.from.id))) {
-            const buttons = [
-                [{ text: "Join Channel", url: `https://t.me/${BOT_CHANNEL_USERNAME}` }],
-                [{ text: "Try Again", url: `https://t.me/${(await getMe()).username}?start=${message.text.split(' ')[1]}` }]
-            ];
-            return sendMessage(
-                message.chat.id,
-                message.message_id,
-                "📢 Please join our channel first to use this bot!\n\n" +
-                "After joining, click 'Try Again' button.",
-                buttons
-            );
-        }
-
-        const file = message.text.split("/start ")[1];
-        try {
-            atob(file);
-        } catch {
-            return await sendMessage(
-                message.chat.id, 
-                message.message_id, 
-                ERROR_407.description
-            );
-        }
-
-        const file_path = atob(file);
-        const channel_id = parseInt(file_path.split('/')[0])/-SIA_NUMBER;
-        const message_id = parseInt(file_path.split('/')[1])/SIA_NUMBER;
-        const data = await editMessage(channel_id, message_id, await UUID());
-
-        if (data.document) {
-            return await sendDocument(message.chat.id, data.document.file_id);
-        } else if (data.audio) {
-            return await sendDocument(message.chat.id, data.audio.file_id);
-        } else if (data.video) {
-            return await sendDocument(message.chat.id, data.video.file_id);
-        } else if (data.photo) {
-            return await sendPhoto(message.chat.id, data.photo[data.photo.length - 1].file_id);
-        } else {
-            return sendMessage(
-                message.chat.id, 
-                message.message_id, 
-                "Bad Request: File not found"
-            );
-        }
-    }
-
-    // Check channel membership for non-owners for other messages
-    if (!PUBLIC_BOT && message.from.id != BOT_OWNER && !(await checkChannelMembership(message.from.id))) {
-        const buttons = [
-            [{ text: "Join Channel", url: `https://t.me/${BOT_CHANNEL_USERNAME}` }],
-            [{ text: "Try Again", url: `https://t.me/${(await getMe()).username}?start=check` }]
-        ];
-        return sendMessage(
-            message.chat.id,
-            message.message_id,
-            "📢 Please join our channel first to use this bot!\n\n" +
-            "After joining, click 'Try Again' button.",
-            buttons
-        );
-    }
-
-    // Process file uploads
-    let fID, fName, fSave, fType;
-    if (message.document) {
-        fID = message.document.file_id;
-        fName = message.document.file_name;
-        fType = message.document.mime_type.split("/")[0];
-        fSave = await sendDocument(BOT_CHANNEL, fID);
-    } else if (message.audio) {
-        fID = message.audio.file_id;
-        fName = message.audio.file_name;
-        fType = message.audio.mime_type.split("/")[0];
-        fSave = await sendDocument(BOT_CHANNEL, fID);
-    } else if (message.video) {
-        fID = message.video.file_id;
-        fName = message.video.file_name;
-        fType = message.video.mime_type.split("/")[0];
-        fSave = await sendDocument(BOT_CHANNEL, fID);
-    } else if (message.photo) {
-        fID = message.photo[message.photo.length - 1].file_id;
-        fName = message.photo[message.photo.length - 1].file_unique_id + '.jpg';
-        fType = "image/jpg".split("/")[0];
-        fSave = await sendPhoto(BOT_CHANNEL, fID);
-    } else {
-        const buttons = [[{ text: "Source Code", url: "https://github.com/vauth/filestream-cf" }]];
-        return sendMessage(
-            message.chat.id,
-            message.message_id,
-            "Send me any file/video/gif/audio *(t<=4GB, e<=20MB)*.",
-            buttons
-        );
-    }
-
-    if (fSave.error_code) {
-        return sendMessage(
-            message.chat.id,
-            message.message_id,
-            fSave.description
-        );
-    }
-
-    const url = new URL(event.request.url);
-    const bot = await getMe();
-    const final_hash = (btoa(fSave.chat.id*-SIA_NUMBER + "/" + fSave.message_id*SIA_NUMBER)).replace(/=/g, "");
-    const final_link = `${url.origin}/?file=${final_hash}`;
-    const final_stre = `${url.origin}/?file=${final_hash}&mode=inline`;
-    const final_tele = `https://t.me/${bot.username}/?start=${final_hash}`;
+    const settings = groupSettings.get(chatId.toString()) || { welcomeEnabled: true, language: 'en' };
+    groupSettings.set(chatId.toString(), settings);
 
     const buttons = [
         [
-            { text: "Telegram Link", url: final_tele },
-            { text: "Inline Link", switch_inline_query_current_chat: final_hash }
+            { text: `Welcome Msg: ${settings.welcomeEnabled ? '✅ On' : '❌ Off'}`, callback_data: '/settings_toggleWelcome' },
+            { text: `Language: ${settings.language.toUpperCase()}`, callback_data: '/settings_changeLanguage' }
         ],
-        [
-            { text: "Stream Link", url: final_stre },
-            { text: "Download Link", url: final_link }
-        ]
+        [{ text: 'Close', callback_data: '/closeSettings' }]
     ];
 
-    const final_text = `*🗂 File Name:* \`${fName}\`\n*⚙️ File Hash:* \`${final_hash}\``;
-    return sendMessage(
-        message.chat.id,
-        message.message_id,
-        final_text,
-        buttons
-    );
+    const settingsText = `
+<b>⚙️ Group Settings ⚙️</b>
+•❅─────✧❅✦❅✧─────❅•
+➻ <b>Chat ID:</b> <code>${chatId}</code>
+➻ <b>Welcome Msg:</b> ${settings.welcomeEnabled ? 'Enabled' : 'Disabled'}
+➻ <b>Language:</b> ${settings.language.toUpperCase()}
+<i>Manage bot settings for this group | Powered by xAI</i>
+    `;
+    await telegramApi('sendMessage', { chat_id: chatId, text: settingsText, parse_mode: 'HTML', reply_markup: { inline_keyboard: buttons } });
+    await deleteMessage(chatId, messageId);
 }
+
+async function handleSettingsCallback(chatId, messageId, userId, data) {
+    const member = await telegramApi('getChatMember', { chat_id: chatId, user_id: userId });
+    if (!member || !['administrator', 'creator'].includes(member.result.status)) {
+        await telegramApi('editMessageText', {
+            chat_id: chatId,
+            message_id: messageId,
+            text: '<b>⚠️ Only group admins can modify settings!</b>',
+            parse_mode: 'HTML'
+        });
+        return;
+    }
+
+    const settings = groupSettings.get(chatId.toString()) || { welcomeEnabled: true, language: 'en' };
+
+    switch (data) {
+        case '/settings_toggleWelcome':
+            settings.welcomeEnabled = !settings.welcomeEnabled;
+            break;
+        case '/settings_changeLanguage':
+            settings.language = settings.language === 'en' ? 'es' : 'en';
+            break;
+        case '/closeSettings':
+            await deleteMessage(chatId, messageId);
+            return;
+    }
+
+    groupSettings.set(chatId.toString(), settings);
+
+    const buttons = [
+        [
+            { text: `Welcome Msg: ${settings.welcomeEnabled ? '✅ On' : '❌ Off'}`, callback_data: '/settings_toggleWelcome' },
+            { text: `Language: ${settings.language.toUpperCase()}`, callback_data: '/settings_changeLanguage' }
+        ],
+        [{ text: 'Close', callback_data: '/closeSettings' }]
+    ];
+
+    const updatedText = `
+<b>⚙️ Group Settings ⚙️</b>
+•❅─────✧❅✦❅✧─────❅•
+➻ <b>Chat ID:</b> <code>${chatId}</code>
+➻ <b>Welcome Msg:</b> ${settings.welcomeEnabled ? 'Enabled' : 'Disabled'}
+➻ <b>Language:</b> ${settings.language.toUpperCase()}
+<i>Settings updated | Powered by xAI</i>
+    `;
+    await telegramApi('editMessageText', {
+        chat_id: chatId,
+        message_id: messageId,
+        text: updatedText,
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: buttons }
+    });
+}
+
+// New /ban command
+async function handleBan(chatId, user, replyToMessage, messageId) {
+    // Check if it's a group
+    if (chatId > 0) {
+        await telegramApi('sendMessage', { chat_id: chatId, text: '<b>⚠️ /ban is only available in groups!</b>', parse_mode: 'HTML' });
+        return;
+    }
+
+    // Check if user is an admin
+    const member = await telegramApi('getChatMember', { chat_id: chatId, user_id: user.id });
+    if (!member || !['administrator', 'creator'].includes(member.result.status)) {
+        await telegramApi('sendMessage', { chat_id: chatId, text: '<b>⚠️ Only group admins can use /ban!</b>', parse_mode: 'HTML' });
+        return;
+    }
+
+    // Check if there's a reply to ban a user
+    if (!replyToMessage) {
+        await telegramApi('sendMessage', { chat_id: chatId, text: '<b>⚠️ Please reply to a user’s message to ban them!</b>', parse_mode: 'HTML' });
+        return;
+    }
+
+    const targetUser = replyToMessage.from;
+    const targetUserId = targetUser.id;
+
+    // Prevent banning admins or the bot itself
+    const targetMember = await telegramApi('getChatMember', { chat_id: chatId, user_id: targetUserId });
+    if (targetMember.result.status === 'administrator' || targetMember.result.status === 'creator') {
+        await telegramApi('sendMessage', { chat_id: chatId, text: '<b>⚠️ Cannot ban group admins!</b>', parse_mode: 'HTML' });
+        return;
+    }
+    if (targetUserId === (await telegramApi('getMe')).result.id) {
+        await telegramApi('sendMessage', { chat_id: chatId, text: '<b>⚠️ I can’t ban myself!</b>', parse_mode: 'HTML' });
+        return;
+    }
+
+    // Ban the user permanently
+    const banResult = await telegramApi('banChatMember', {
+        chat_id: chatId,
+        user_id: targetUserId,
+        revoke_messages: true, // Delete all messages from the user
+        until_date: 0 // Permanent ban (0 = forever)
+    });
+
+    // Send stylish confirmation
+    const banMessage = await telegramApi('sendMessage', {
+        chat_id: chatId,
+        text: `<b>🔨 Banning @${targetUser.username || targetUser.first_name}...</b>`,
+        parse_mode: 'HTML'
+    });
+
+    if (!banMessage || !banMessage.result) return;
+
+    const banText = `
+<b>🔨 User Banned 🚫</b>
+•❅─────✧❅✦❅✧─────❅•
+➻ <b>User:</b> @${targetUser.username || targetUser.first_name} (<code>${targetUserId}</code>)
+➻ <b>Status:</b> ${banResult.ok ? 'Permanently Banned' : 'Failed'}
+➻ <b>Messages:</b> ${banResult.ok ? 'Deleted' : 'Not Deleted'}
+<i>Banned by @${user.username || user.first_name} | Powered by xAI</i>
+    `;
+
+    await telegramApi('editMessageText', {
+        chat_id: chatId,
+        message_id: banMessage.result.message_id,
+        text: banText,
+        parse_mode: 'HTML'
+    });
+
+    // Delete the /ban command message
+    await deleteMessage(chatId, messageId);
+}
+
+// Event listener for fetch
+addEventListener('fetch', event => {
+    event.respondWith(handleRequest(event.request));
+}); 
