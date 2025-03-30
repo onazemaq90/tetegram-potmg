@@ -308,7 +308,7 @@ async function onMessage(event, message) {
 
   if (!PUBLIC_BOT && message.chat.id != BOT_OWNER) {
     const buttons = [[{ text: "Source Code", url: "https://github.com/vauth/filestream-cf" }]];
-    return sendMessage(message.chat.id, message.message_id, "*❌ Access forbidden.*\n📡 Deploy your own [filestream-cf](https://github.com/vauth/filestream-cf) bot.", buttons)
+    return sendMessage(message.chat.id, message.message_id, "*Please join the following channels to use the bot:.", buttons)
   }
 
   if (message.document){
