@@ -29,7 +29,7 @@ async function sendMessage(chat_id, text) {
 }
 
 async function sendRandomPhoto(chat_id) {
-  const CHANNEL_ID = "@your_channel"; // Replace with your channel username or ID
+  const CHANNEL_ID = "-1002296144137"; // Replace with your channel username or ID
   const TELEGRAM_API_URL = `https://api.telegram.org/botYOUR_BOT_TOKEN/getUpdates`;
 
   const response = await fetch(TELEGRAM_API_URL);
