@@ -20,7 +20,7 @@ export default {
 };
 
 async function sendMessage(chat_id, text) {
-  const TELEGRAM_API_URL = `https://api.telegram.org/botYOUR_BOT_TOKEN/sendMessage`;
+  const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
   await fetch(TELEGRAM_API_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -30,7 +30,7 @@ async function sendMessage(chat_id, text) {
 
 async function sendRandomPhoto(chat_id) {
   const CHANNEL_ID = "-1002296144137"; // Replace with your channel username or ID
-  const TELEGRAM_API_URL = `https://api.telegram.org/botYOUR_BOT_TOKEN/getUpdates`;
+  const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates`;
 
   const response = await fetch(TELEGRAM_API_URL);
   const data = await response.json();
@@ -46,7 +46,7 @@ async function sendRandomPhoto(chat_id) {
 
   const randomPhoto = photos[Math.floor(Math.random() * photos.length)];
   
-  await fetch(`https://api.telegram.org/botYOUR_BOT_TOKEN/sendPhoto`, {
+  await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chat_id, photo: randomPhoto }),
