@@ -123,12 +123,11 @@ async function sendWelcomeMessage(chatId, user) {
 
     const videoUrl = 'https://t.me/kajal_developer/57';
     const buttons = [
-        [{ text: '💻 Commands', callback_data: '/Commands' }
-        ],
+        [{ text: '💻 Commands', callback_data: '/Commands' }],
         [
         [{ text: '👨‍💻 DEV', url: 'https://t.me/Teleservices_Api' }],
         [{ text: '◀️ Go Back', callback_data: '/goBack' }]
-    ]
+    ];
     const caption = `<b>👋 Welcome Back, ${user.first_name}!</b>\n\n🌟 Bot Status: Alive 🟢\n💞 Dev: @LakshayDied`;
 
     await telegramApi('sendVideo', {
