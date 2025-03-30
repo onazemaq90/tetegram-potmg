@@ -128,7 +128,7 @@ async function sendWelcomeMessage(chatId, user) {
         [
         [{ text: '👨‍💻 DEV', url: 'https://t.me/Teleservices_Api' }],
         [{ text: '◀️ Go Back', callback_data: '/goBack' }]
-    ];
+    ]
     const caption = `<b>👋 Welcome Back, ${user.first_name}!</b>\n\n🌟 Bot Status: Alive 🟢\n💞 Dev: @LakshayDied`;
 
     await telegramApi('sendVideo', {
@@ -139,6 +139,7 @@ async function sendWelcomeMessage(chatId, user) {
         reply_markup: { inline_keyboard: buttons }
     });
 }
+
 async function sendCommandsMenu(chatId) {
     const videoUrl = 'https://t.me/kajal_developer/57';
     const buttons = [
