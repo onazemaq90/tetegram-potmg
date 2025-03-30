@@ -1,54 +1,93 @@
 export default {
-  async fetch(request) {
-    const TELEGRAM_BOT_TOKEN = "7286429810:AAFBRan5i76hT2tlbxzpjFYwJKRQhLh5kPY"; // Replace with your bot token
-    const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
+  // Store your bot token in your environment variables
+  async fetch(request, env) {
+    const BOT_TOKEN = env.TELEGRAM_BOT_TOKEN;
+    const CHANNEL_ID = env.CHANNEL_ID; // The channel ID where photos are stored
     
-    const requestBody = await request.json();
-    const chat_id = requestBody.message?.chat?.id;
-    const text = requestBody.message?.text;
-
-    if (!chat_id || !text) return new Response("No chat ID or text", { status: 400 });
-
-    if (text === "/start") {
-      await sendMessage(chat_id, "Welcome! Send /photo to get a random image.");
-    } else if (text === "/photo") {
-      await sendRandomPhoto(chat_id);
+    if (request.method !== "POST") {
+      return new Response("Expected a POST request", { status: 405 });
     }
 
-    return new Response("OK", { status: 200 });
-  },
+    try {
+      const payload = await request.json();
+      
+      // Check if this is a message with a command
+      if (payload.message?.text?.startsWith('/photo')) {
+        // Handle the /photo command
+        return await handlePhotoCommand(BOT_TOKEN, CHANNEL_ID, payload.message.chat.id);
+      }
+
+      return new Response("OK", { status: 200 });
+    } catch (err) {
+      return new Response(err.message, { status: 500 });
+    }
+  }
 };
 
-async function sendMessage(chat_id, text) {
-  const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-  await fetch(TELEGRAM_API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id, text }),
-  });
+async function handlePhotoCommand(botToken, channelId, chatId) {
+  try {
+    // 1. First, get messages from the channel
+    const messagesResponse = await fetch(
+      `https://api.telegram.org/bot${botToken}/getChannelMessages`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chat_id: channelId,
+          limit: 530 // Adjust this number as needed
+        })
+      }
+    );
+
+    const messages = await messagesResponse.json();
+    
+    // 2. Filter messages that contain photos
+    const photoMessages = messages.result.filter(msg => msg.photo);
+    
+    if (photoMessages.length === 0) {
+      // If no photos found, send an error message
+      return await sendMessage(botToken, chatId, "No photos found in the channel!");
+    }
+
+    // 3. Pick a random photo from the filtered messages
+    const randomPhoto = photoMessages[Math.floor(Math.random() * photoMessages.length)];
+    
+    // 4. Forward the selected photo
+    const forwardResponse = await fetch(
+      `https://api.telegram.org/bot${botToken}/forwardMessage`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          from_chat_id: channelId,
+          message_id: randomPhoto.message_id
+        })
+      }
+    );
+
+    return new Response("OK", { status: 200 });
+  } catch (error) {
+    return new Response(`Error: ${error.message}`, { status: 500 });
+  }
 }
 
-async function sendRandomPhoto(chat_id) {
-  const CHANNEL_ID = "-1002296144137"; // Replace with your channel username or ID
-  const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates`;
-
-  const response = await fetch(TELEGRAM_API_URL);
-  const data = await response.json();
-
-  const photos = data.result
-    .filter(msg => msg.message?.chat?.username === CHANNEL_ID && msg.message?.photo)
-    .map(msg => msg.message.photo.pop().file_id);
-
-  if (photos.length === 0) {
-    await sendMessage(chat_id, "No photos found!");
-    return;
-  }
-
-  const randomPhoto = photos[Math.floor(Math.random() * photos.length)];
-  
-  await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id, photo: randomPhoto }),
-  });
+async function sendMessage(botToken, chatId, text) {
+  return await fetch(
+    `https://api.telegram.org/bot${botToken}/sendMessage`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: text
+      })
+    }
+  );
 }
