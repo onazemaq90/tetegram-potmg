@@ -215,7 +215,7 @@ async function onInline(event, inline) {
 
   if (!PUBLIC_BOT && inline.from.id != BOT_OWNER) {
     const buttons = [[{ text: "Source Code", url: "https://github.com/vauth/filestream-cf" }]];
-    return await answerInlineArticle(inline.id, "Access forbidden", "Deploy your own filestream-cf.", "*❌ Access forbidden.*\n📡 Deploy your own [filestream-cf](https://github.com/vauth/filestream-cf) bot.", buttons)
+    return await answerInlineArticle(inline.id, "Access forbidden", "Deploy your own filestream-cf."Please join the following channels to use the bot.", buttons)
   }
  
   try {atob(inline.query)} catch {
