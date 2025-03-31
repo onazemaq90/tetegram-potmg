@@ -22,7 +22,8 @@ async function handleRequest(request) {
       // Handle commands
       switch (text) {
         case '/start':
-          const welcomeMessage = `
+  const startParam = update.message.text.split(' ')[1] || ''; // Get parameter after /start
+  let welcomeMessage = `
 𝗪𝗲𝗹𝗰𝗼𝗺𝗲 𝘁𝗼 ${BOT_USERNAME}! 🎉
 
 Use /help to see available commands
@@ -31,7 +32,17 @@ Use /help to see available commands
 𝙱𝚢 𝚌𝚘𝚗𝚝𝚒𝚗𝚞𝚒𝚗𝚐, 𝚢𝚘𝚞 𝚌𝚘𝚗𝚏𝚒𝚛𝚖 𝚢𝚘𝚞𝚛 𝚊𝚐𝚎.
 
 𝐄𝐧𝐣𝐨𝐲 𝐫𝐞𝐬𝐩𝐨𝐧𝐬𝐢𝐛𝐥𝐲! 🥵
-          `;
+  `;
+  
+  if (startParam.startsWith('ref_')) {
+    const referrerId = startParam.replace('ref_', '');
+    if (referrerId !== userId.toString()) { // Prevent self-referral
+      // Award points to referrer (example: 10 points)
+      let referrerPoints = (await USER_POINTS.get(`points_${referrerId}`, { type: 'json' }) || 0) + 10;
+      await USER_POINTS.put(`points_${referrerId}`, JSON18n(JSON.stringify(referrerPoints));
+      welcomeMessage += '\n\nThanks for joining via a referral! The referrer has been rewarded 10 points.';
+    }
+  }
           await sendMessage(chatId, welcomeMessage);
           break;
           
