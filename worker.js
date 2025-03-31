@@ -1,8 +1,10 @@
 const BOT_TOKEN = '7286429810:AAFBRan5i76hT2tlbxzpjFYwJKRQhLh5kPY'; // Replace with your actual bot token
 const BASE_URL = `https://api.telegram.org/bot${BOT_TOKEN}`;
+// Replace with your bot's username (get from BotFather)
+const BOT_USERNAME = 'YourBotName'; 
 
-// Assumes you have a KV namespace bound to 'USER_POINTS' in your worker
-// In wrangler.toml, add: kv_namespaces = [{ binding = "USER_POINTS", id = "your-kv-id" }]
+// Assumes you have a KV namespace bound to 'USER_POINTS'
+// In wrangler.toml: kv_namespaces = [{ binding = "USER_POINTS", id = "your-kv-id" }]
 
 addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request));
@@ -21,7 +23,7 @@ async function handleRequest(request) {
       switch (text) {
         case '/start':
           const welcomeMessage = `
-𝗪𝗲𝗹𝗰𝗼𝗺𝗲 𝘁𝗼 YourBotName! 🎉
+𝗪𝗲𝗹𝗰𝗼𝗺𝗲 𝘁𝗼 ${BOT_USERNAME}! 🎉
 
 Use /help to see available commands
 
@@ -59,7 +61,6 @@ Use /help to see available commands
           break;
 
         case '/points':
-          // Get user's points from KV store
           const points = await USER_POINTS.get(`points_${userId}`, { type: 'json' }) || 0;
           const pointsMessage = `
 🏅 <b>Your Points Balance</b>
@@ -71,6 +72,20 @@ Earn more points with:
 /refer 🔗 - Invite friends
           `;
           await sendMessage(chatId, pointsMessage);
+          break;
+
+        case '/refer':
+          // Generate referral link using bot username and user ID
+          const referralLink = `https://t.me/${BOT_USERNAME}?start=ref_${userId}`;
+          const referMessage = `
+🔗 <b>Your Referral Link</b>
+Invite friends using this link:
+${referralLink}
+
+Earn bonus points when your friends join!
+Check stats with /referral 👥
+          `;
+          await sendMessage(chatId, referMessage);
           break;
       }
     }
@@ -85,7 +100,7 @@ async function sendMessage(chatId, text) {
   const url = `${BASE_URL}/sendMessage`;
   const payload = {
     chat_id: chatId,
-    text: text.trim(), // Remove extra whitespace
+    text: text.trim(),
     parse_mode: 'HTML'
   };
   
