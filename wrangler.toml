@@ -2,5 +2,9 @@ name = "tetegram-potmg"
 main = "worker.js"
 compatibility_date = "2025-02-12"
 
+kv_namespaces = [
+  { binding = "USER_POINTS", id = "e5505a85fe854a3dabeb81c1a1effc1c" }
+]
+
 [build]
 format = "modules"
