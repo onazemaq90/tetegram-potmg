@@ -1,10 +1,13 @@
 const BOT_TOKEN = '7286429810:AAFBRan5i76hT2tlbxzpjFYwJKRQhLh5kPY'; // Replace with your actual bot token
 const BASE_URL = `https://api.telegram.org/bot${BOT_TOKEN}`;
-// Replace with your bot's username (get from BotFather)
-const BOT_USERNAME = 'YourBotName'; 
+const BOT_USERNAME = 'YourBotName'; // Replace with your bot's username (without @)
 
-// Assumes you have a KV namespace bound to 'USER_POINTS'
-// In wrangler.toml: kv_namespaces = [{ binding = "USER_POINTS", id = "your-kv-id" }]
+// Assumes KV namespace 'USER_POINTS' and 'REFERRALS' are bound
+// In wrangler.toml:
+// kv_namespaces = [
+//   { binding = "USER_POINTS", id = "your-points-kv-id" },
+//   { binding = "REFERRALS", id = "your-referrals-kv-id" }
+// ]
 
 addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request));
@@ -16,14 +19,13 @@ async function handleRequest(request) {
     
     if (update.message) {
       const chatId = update.message.chat.id;
-      const userId = update.message.from.id; // Unique user identifier
+      const userId = update.message.from.id;
       const text = update.message.text;
       
       // Handle commands
       switch (text) {
         case '/start':
-  const startParam = update.message.text.split(' ')[1] || ''; // Get parameter after /start
-  let welcomeMessage = `
+          let welcomeMessage = `
 𝗪𝗲𝗹𝗰𝗼𝗺𝗲 𝘁𝗼 ${BOT_USERNAME}! 🎉
 
 Use /help to see available commands
@@ -32,17 +34,15 @@ Use /help to see available commands
 𝙱𝚢 𝚌𝚘𝚗𝚝𝚒𝚗𝚞𝚒𝚗𝚐, 𝚢𝚘𝚞 𝚌𝚘𝚗𝚏𝚒𝚛𝚖 𝚢𝚘𝚞𝚛 𝚊𝚐𝚎.
 
 𝐄𝐧𝐣𝐨𝐲 𝐫𝐞𝐬𝐩𝐨𝐧𝐬𝐢𝐛𝐥𝐲! 🥵
-  `;
-  
-  if (startParam.startsWith('ref_')) {
-    const referrerId = startParam.replace('ref_', '');
-    if (referrerId !== userId.toString()) { // Prevent self-referral
-      // Award points to referrer (example: 10 points)
-      let referrerPoints = (await USER_POINTS.get(`points_${referrerId}`, { type: 'json' }) || 0) + 10;
-      await USER_POINTS.put(`points_${referrerId}`, JSON18n(JSON.stringify(referrerPoints));
-      welcomeMessage += '\n\nThanks for joining via a referral! The referrer has been rewarded 10 points.';
-    }
-  }
+          `;
+          // Check if this is a referral start
+          if (text.startsWith('/start ') && text.length > 7) {
+            const referrerId = text.split(' ')[1];
+            if (referrerId !== userId.toString()) {
+              await handleReferral(referrerId, userId);
+              welcomeMessage += `\n\nThanks for joining via a referral!`;
+            }
+          }
           await sendMessage(chatId, welcomeMessage);
           break;
           
@@ -86,14 +86,13 @@ Earn more points with:
           break;
 
         case '/refer':
-          // Generate referral link using bot username and user ID
-          const referralLink = `https://t.me/${BOT_USERNAME}?start=ref_${userId}`;
+          const referralLink = `https://t.me/${BOT_USERNAME}?start=${userId}`;
           const referMessage = `
 🔗 <b>Your Referral Link</b>
 Invite friends using this link:
-${referralLink}
+${referialLink}
 
-Earn bonus points when your friends join!
+You'll earn 10 points for each friend who joins!
 Check stats with /referral 👥
           `;
           await sendMessage(chatId, referMessage);
@@ -105,6 +104,24 @@ Check stats with /referral 👥
   }
   
   return new Response('Method not allowed', { status: 405 });
+}
+
+async function handleReferral(referrerId, newUserId) {
+  // Check if new user hasn't been referred before
+  const alreadyReferred = await REFERRALS.get(`referred_${newUserId}`);
+  if (!alreadyReferred) {
+    // Add points to referrer
+    let referrerPoints = await USER_POINTS.get(`points_${referrerId}`, { type: 'json' }) || 0;
+    referrerPoints += 10;
+    await USER_POINTS.put(`points_${referrerId}`, JSON.stringify(referrerPoints));
+    
+    // Record referral
+    await REFERRALS.put(`referred_${newUserId}`, referrerId);
+    
+    // Update referrer's referral count
+    const referralCount = await REFERRALS.get(`referrals_${referrerId}`, { type: 'json' }) || 0;
+    await REFERRALS.put(`referrals_${referrerId}`, JSON.stringify(referralCount + 1));
+  }
 }
 
 async function sendMessage(chatId, text) {
