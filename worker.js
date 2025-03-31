@@ -1,4 +1,5 @@
 const BOT_TOKEN = '7286429810:AAFBRan5i76hT2tlbxzpjFYwJKRQhLh5kPY';
+const USERS_KV = '2ebf2f9954c641d8a8e929068992ad8c';
 const BASE_URL = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
 async function handleRequest(request) {
@@ -25,6 +26,9 @@ async function handleUpdate(update) {
     await sendStartMessage(chatId, firstName);
   } else if (text.startsWith('/help')) {
     await sendHelpMessage(chatId);
+  } else if (text.startsWith('/points')) {
+    await checkPoints(chatId, userId);
+  }
   }
 }
 
@@ -89,6 +93,23 @@ async function sendMessage(chatId, text) {
   });
 }
 
+// Replace the Map with KV operations
+async function getUser(userId, firstName) {
+  let user = await USERS_KV.get(userId, 'json');
+  if (!user) {
+    user = { points: 10, firstName: firstName };
+    await USERS_KV.put(userId, JSON.stringify(user));
+  }
+  return user;
+}
+
+// Update checkPoints function
+async function checkPoints(chatId, userId) {
+  const user = await getUser(userId);
+  const message = `💰 Points Balance 💰\n\nYou have ${user.points} points`;
+  await sendMessage(chatId, message);
+}
+//
 addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request));
 });
