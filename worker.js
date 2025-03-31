@@ -1,62 +1,35 @@
-// Cloudflare Worker code for Telegram Bot
-const BOT_TOKEN = '7286429810:AAFBRan5i76hT2tlbxzpjFYwJKRQhLh5kPY'; // Replace with your actual bot token from BotFather
+const BOT_TOKEN = '7286429810:AAFBRan5i76hT2tlbxzpjFYwJKRQhLh5kPY';
 const BASE_URL = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
-// Store user data (in production, you'd want to use Workers KV or a database)
-const users = new Map();
-
-addEventListener('fetch', event => {
-  event.respondWith(handleRequest(event.request));
-});
-
 async function handleRequest(request) {
-  const { pathname } = new URL(request.url);
-  
-  // Telegram webhook endpoint
-  if (pathname === '/webhook') {
-    const update = await request.json();
-    await handleTelegramUpdate(update);
-    return new Response('OK', { status: 200 });
+  if (request.method === 'POST') {
+    try {
+      const update = await request.json();
+      await handleUpdate(update);
+      return new Response('OK');
+    } catch (error) {
+      return new Response('Error processing update', { status: 500 });
+    }
   }
-  
-  return new Response('Bot is running', { status: 200 });
+  return new Response('Method not allowed', { status: 405 });
 }
 
-async function handleTelegramUpdate(update) {
-  if (!update.message) return;
+async function handleUpdate(update) {
+  if (!update.message || !update.message.text) return;
   
   const chatId = update.message.chat.id;
-  const text = update.message.text || '';
-  const userId = update.message.from.id;
+  const text = update.message.text;
+  const firstName = update.message.from.first_name || 'User';
   
-  // Initialize user if new
-  if (!users.has(userId)) {
-    users.set(userId, {
-      points: 10,
-      referrals: 0,
-      lastDaily: 0,
-      username: update.message.from.username || 'User' + userId
-    });
-  }
-  
-  const user = users.get(userId);
-
-  // Handle commands
-  switch (text.toLowerCase()) {
-    case '/start':
-      await sendMessage(chatId, getStartMessage(user.username));
-      break;
-      
-    case '/help':
-      await sendMessage(chatId, getHelpMessage());
-      break;
-      
-    // Add more command handlers here as needed
+  if (text.startsWith('/start')) {
+    await sendStartMessage(chatId, firstName);
+  } else if (text.startsWith('/help')) {
+    await sendHelpMessage(chatId);
   }
 }
 
-function getStartMessage(username) {
-  return `🌟✨ Welcome, ${username}! ✨🌟
+async function sendStartMessage(chatId, firstName) {
+  const message = `🌟✨ Welcome, ${firstName}! ✨🌟
 
 🔥 Ready to explore exclusive content? I'm your gateway to:
 🎥 Hot Videos | 📸 Steamy Photos
@@ -70,10 +43,12 @@ By continuing, you confirm you're 18+ and agree to our terms
 
 📌 Pro Tip: Check /help for all commands!
 🎯 Your current points: 10`;
+
+  await sendMessage(chatId, message);
 }
 
-function getHelpMessage() {
-  return `🌟 🌟
+async function sendHelpMessage(chatId) {
+  const message = `🌟 🌟
 Your gateway to adult content for 18+ users.
 
 📋 User Commands:
@@ -93,24 +68,27 @@ Your gateway to adult content for 18+ users.
 
 🛠 Admin Commands: (Owner Only)
 🔧 /admin - View admin commands`;
+
+  await sendMessage(chatId, message);
 }
 
 async function sendMessage(chatId, text) {
   const url = `${BASE_URL}/sendMessage`;
+  const body = {
+    chat_id: chatId,
+    text: text,
+    parse_mode: 'Markdown'
+  };
+  
   await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: text,
-      parse_mode: 'Markdown'
-    })
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
   });
 }
 
-// Set up webhook (run this once during deployment)
-async function setWebhook() {
-  const WEBHOOK_URL = 'tetegram-potmg.bjplover94.workers.dev/webhook'; // Replace with your worker URL
-  const url = `${BASE_URL}/setWebhook?url=${WEBHOOK_URL}`;
-  await fetch(url);
-}
+addEventListener('fetch', event => {
+  event.respondWith(handleRequest(event.request));
+});
