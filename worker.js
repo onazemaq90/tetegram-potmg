@@ -25,15 +25,18 @@ async function handleRequest(request) {
     );
   }
 
-  // Simulate bombing logic (replace with actual API calls)
-  const bombResponse = await startBombing(number, countNumber);
+  // Prepend "+91" to the number
+  const fullNumber = `+91${number}`;
+
+  // Simulate bombing logic
+  const bombResponse = await startBombing(fullNumber, countNumber);
 
   return new Response(bombResponse, {
     headers: { 'Content-Type': 'text/html' },
   });
 }
 
-// HTML form as a string
+// HTML form with +91 design
 function getHTMLForm() {
   return `
     <!DOCTYPE html>
@@ -55,12 +58,17 @@ function getHTMLForm() {
           .heading { display: flex; margin-top: 50px; margin-bottom: 50px; height: 100px; justify-content: center; align-items: center; }
           .heading h2 { color: #fff; font-family: "Courier", monospace; }
           .form { display: flex; flex-direction: column; justify-content: center; align-items: center; }
-          .forminput { font-size: 20px; text-align: center; border-radius: 23px; display: block; margin: 13px; }
+          .forminput { font-size: 20px; text-align: center; border-radius: 23px; display: block; margin: 13px; padding-left: 50px; width: 250px; }
           .btns { display: block; background: #0D6EFD; border: 0; border-radius: 23px; color: white; font-family: Space Grotesk; text-transform: uppercase; cursor: pointer; margin: auto; margin-top: 10px; padding: 5px; font-size: 25px; }
           .btns:hover { background: #000; }
           .bomb-start { color: #fff; display: flex; padding-top: 10px; font-family: Space Grotesk; justify-content: center; }
           .bomb-count { display: flex; justify-content: center; color: red; padding-top: 10px; }
           #stop-btn { display: inline-block; background: #0D6EFD; border-radius: 23px; font-size: 18px; text-transform: uppercase; color: #fff; text-decoration: none; padding: 20px 30px; margin-top: 15px; }
+          .input-wrapper { position: relative; display: inline-block; }
+          .country-code { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #fff; font-size: 20px; pointer-events: none; }
+          input::-webkit-outer-spin-button,
+          input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+          input[type=number] { -moz-appearance: textfield; }
         </style>
       </head>
       <body>
@@ -69,7 +77,10 @@ function getHTMLForm() {
         </div>
         <div class="form">
           <form action="/" method="GET">
-            <input class="forminput" type="number" name="number" placeholder="Enter Number" required />
+            <div class="input-wrapper">
+              <span class="country-code">+91</span>
+              <input class="forminput" type="number" name="number" placeholder="Enter Number" required />
+            </div>
             <input class="forminput" type="number" max="1999950" name="countnumber" value="50" placeholder="Enter No. Of Calls" required />
             <input class="forminput" type="text" name="key" placeholder="Enter Access key" required />
             <a style="background-color: red;" class="btn btn-primary fw-bold p-2" href="//t.me/devsmk">Get key<i class="fa fa-telegram"></i></a>
