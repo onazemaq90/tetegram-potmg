@@ -1,126 +1,118 @@
 addEventListener('fetch', event => {
-  event.respondWith(handleRequest(event.request));
-});
+  event.respondWith(handleRequest(event.request))
+})
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+}
+
+const ALLOWED_DOMAINS = [
+  'freeterabox.com',
+  'www.freeterabox.com',
+  'terafileshare.com'
+]
 
 async function handleRequest(request) {
-  const url = new URL(request.url);
-  const videoUrl = url.searchParams.get('url');
+  const url = new URL(request.url)
   
-  // CORS headers
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type'
-  };
-
-  // Handle OPTIONS request for CORS
+  // Handle OPTIONS preflight
   if (request.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, {
+      headers: corsHeaders
+    })
   }
 
+  // Handle API requests
+  if (url.pathname.startsWith('/api/info')) {
+    return handleVideoInfo(request)
+  }
+
+  // Handle video downloads
+  if (url.pathname.endsWith('.mp4')) {
+    return handleVideoDownload(request)
+  }
+
+  return new Response('Not Found', { status: 404 })
+}
+
+async function handleVideoDownload(request) {
+  const url = new URL(request.url)
+  const pathname = url.pathname
+  
+  // Validate allowed domains
+  if (!ALLOWED_DOMAINS.includes(url.hostname)) {
+    return new Response('Forbidden', { status: 403 })
+  }
+
+  const originUrl = `https://terabox.com${pathname.replace('/download/', '/')}`
+  
+  const modifiedHeaders = new Headers(request.headers)
+  modifiedHeaders.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36')
+
+  const response = await fetch(originUrl, {
+    headers: modifiedHeaders
+  })
+
+  const newHeaders = new Headers(response.headers)
+  newHeaders.set('Content-Type', 'video/mp4')
+  newHeaders.set('Access-Control-Allow-Origin', '*')
+
+  return new Response(response.body, {
+    status: response.status,
+    headers: newHeaders
+  })
+}
+
+async function handleVideoInfo(request) {
+  const url = new URL(request.url)
+  const videoUrl = url.searchParams.get('url')
+
   if (!videoUrl) {
-    return new Response(
-      JSON.stringify({ error: 'Please provide a video URL using ?url=' }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
+    return new Response('Missing video URL', { 
+      status: 400,
+      headers: corsHeaders
+    })
   }
 
   try {
-    // Validate URL
-    const validDomains = ['freeterabox.com', 'www.freeterabox.com', 'terafileshare.com'];
-    const videoDomain = new URL(videoUrl).hostname;
-    
-    if (!validDomains.includes(videoDomain)) {
-      return new Response(
-        JSON.stringify({ error: 'Unsupported video domain' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+    const infoResponse = await fetch(videoUrl, {
+      method: 'HEAD',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36'
+      }
+    })
+
+    if (!infoResponse.ok) {
+      throw new Error('Failed to fetch video info')
     }
 
-    // Fetch video information
-    const videoInfo = await getVideoInfo(videoUrl);
-    
-    if (request.method === 'GET' && url.pathname === '/info') {
-      // Return video info
-      return new Response(
-        JSON.stringify(videoInfo),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+    const videoInfo = {
+      filename: getFileName(infoResponse.headers.get('Content-Disposition') || videoUrl),
+      size: infoResponse.headers.get('Content-Length'),
+      date: infoResponse.headers.get('Last-Modified'),
+      type: infoResponse.headers.get('Content-Type')
     }
 
-    // Download and serve video
-    const videoResponse = await fetch(videoInfo.downloadUrl);
-    const videoBuffer = await videoResponse.arrayBuffer();
-
-    return new Response(videoBuffer, {
+    return new Response(JSON.stringify(videoInfo), {
       headers: {
         ...corsHeaders,
-        'Content-Type': 'video/mp4',
-        'Content-Disposition': `attachment; filename="${videoInfo.filename}"`,
-        'Content-Length': videoBuffer.byteLength.toString()
+        'Content-Type': 'application/json'
       }
-    });
-
+    })
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: 'Failed to process video: ' + error.message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
       }
-    );
+    })
   }
 }
 
-async function getVideoInfo(videoUrl) {
-  // This is a simplified implementation
-  // In reality, you'd need to:
-  // 1. Fetch the page
-  // 2. Parse HTML/JavaScript
-  // 3. Extract actual download URL
-  // 4. Get video metadata
-  
-  // Example implementation (you'll need to adjust based on actual site structure)
-  const response = await fetch(videoUrl, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124'
-    }
-  });
-  
-  const html = await response.text();
-  
-  // Simplified video info extraction (replace with actual parsing logic)
-  return {
-    originalUrl: videoUrl,
-    downloadUrl: extractDownloadUrl(html, videoUrl),
-    filename: extractFilename(html) || 'video.mp4',
-    size: extractSize(html) || 'Unknown',
-    status: 'SUCCESS'
-  };
-}
-
-function extractDownloadUrl(html, originalUrl) {
-  // Implement actual URL extraction logic based on site structure
-  // This is a placeholder - you'll need to analyze the target sites
-  return originalUrl; // Replace with real extraction
-}
-
-function extractFilename(html) {
-  // Implement filename extraction
-  // Look for title tags or video metadata in HTML
-  const match = html.match(/<title>(.*?)<\/title>/);
-  return match ? match[1].replace(/[^a-zA-Z0-9]/g, '_') + '.mp4' : null;
-}
-
-function extractSize(html) {
-  // Implement size extraction if available
-  return null; // Replace with real extraction
+function getFileName(header) {
+  const match = header.match(/filename="?(.+?)"?(;|$)/)
+  return match ? match[1] : 'video.mp4'
 }
