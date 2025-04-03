@@ -76,11 +76,12 @@ async function getVideoInfo(videoUrl) {
 
     const html = await response.text()
     
-    // Extract video information from HTML (this will need adjustment based on actual page structure)
+    // Extract video information from HTML (adjust based on actual page structure)
     const titleMatch = html.match(/<title>(.*?)<\/title>/i)
     const title = titleMatch ? titleMatch[1] : 'Untitled'
     
-    const videoUrlMatch = html.match(/videoUrl:\s*["'](.*?)["']/i)
+    // Improved extraction logic for video URL
+    const videoUrlMatch = html.match(/["'](https?:\/\/[^"']+\.mp4)["']/i)
     const directUrl = videoUrlMatch ? videoUrlMatch[1] : null
     
     if (!directUrl) {
