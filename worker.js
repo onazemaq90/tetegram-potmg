@@ -1,212 +1,317 @@
+// Cloudflare Worker for handling video downloads from specified domains
 addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request))
 })
 
 async function handleRequest(request) {
-  // Set CORS headers
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST',
-    'Content-Type': 'application/json'
+  const url = new URL(request.url)
+  const userAgent = request.headers.get('User-Agent') || ''
+  const isBot = /bot|googlebot|crawler|spider|robot|crawling/i.test(userAgent)
+
+  // API endpoint for getting video info
+  if (url.pathname === '/api/video-info') {
+    return handleVideoInfoAPI(request)
   }
 
-  // Handle OPTIONS request for CORS preflight
-  if (request.method === 'OPTIONS') {
-    return new Response(null, { headers })
+  // Handle download requests
+  if (url.pathname.startsWith('/download')) {
+    return handleDownloadRequest(request)
   }
 
-  // Handle Telegram bot updates (POST requests)
-  if (request.method === 'POST') {
-    try {
-      const update = await request.json()
-      return handleTelegramUpdate(update, headers)
-    } catch (error) {
-      return new Response(JSON.stringify({
-        status: false,
-        error: "Invalid request format"
-      }), { status: 400, headers })
-    }
+  // Main page
+  if (url.pathname === '/' || url.pathname === '') {
+    return new Response(htmlHomePage, {
+      headers: { 'Content-Type': 'text/html' }
+    })
   }
 
-  // Handle direct API requests (GET requests)
-  if (request.method === 'GET') {
-    const url = new URL(request.url)
-    const videoUrl = url.searchParams.get('url')
-    const formatParam = url.searchParams.get('format')
-    const format = formatParam ? formatParam.toLowerCase() === 'true' : true
-
-    if (!videoUrl) {
-      return new Response(JSON.stringify({
-        status: false,
-        transcript: "YouTube URL parameter is required",
-        credit: "https://t.me/Teleservices_Api"
-      }), { headers })
-    }
-
-    try {
-      const transcript = await getYoutubeTranscript(videoUrl, format)
-      return new Response(JSON.stringify(transcript), { headers })
-    } catch (error) {
-      return new Response(JSON.stringify({
-        status: false,
-        transcript: "Error fetching transcript",
-        credit: "https://t.me/Teleservices_Api"
-      }), { status: 500, headers })
-    }
+  // For other requests, proxy to the original site if it's one of our target domains
+  const allowedDomains = ['freeterabox.com', 'www.freeterabox.com', 'terafileshare.com']
+  if (allowedDomains.includes(url.hostname)) {
+    return proxyRequest(request)
   }
 
-  return new Response(JSON.stringify({
-    status: false,
-    message: "Method not allowed"
-  }), { status: 405, headers })
+  return new Response('Not Found', { status: 404 })
 }
 
-async function handleTelegramUpdate(update, headers) {
-  // Check if this is a message update
-  if (!update.message || !update.message.text) {
-    return new Response(JSON.stringify({ status: true }), { headers }
-  }
-
-  const message = update.message.text
-  const chatId = update.message.chat.id
-  const botToken = '7286429810:AAFBRan5i76hT2tlbxzpjFYwJKRQhLh5kPY' // Replace with your bot token
-
-  // Handle /start command
-  if (message.startsWith('/start')) {
-    const welcomeMessage = `🎬 *YouTube Transcript Bot*\n\nSend me a YouTube URL and I'll fetch the transcript for you!\n\nCredit: @Teleservices_Api`
+async function handleVideoInfoAPI(request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const videoUrl = searchParams.get('url')
     
-    await sendTelegramMessage(botToken, chatId, welcomeMessage, true)
-    return new Response(JSON.stringify({ status: true }), { headers }
-  }
-
-  // Handle YouTube URLs
-  if (isYoutubeUrl(message)) {
-    try {
-      // Send "processing" message
-      await sendTelegramMessage(botToken, chatId, "⏳ Processing your YouTube video...", false)
-      
-      // Get transcript
-      const transcript = await getYoutubeTranscript(message, true)
-      const response = JSON.parse(transcript)
-      
-      if (response.status && response.transcript) {
-        // Format the response for Telegram
-        let replyText = `📝 *Transcript*:\n\n${response.transcript}\n\n`
-        replyText += `_Credit: ${response.credit}_`
-        
-        // Send transcript (Telegram has 4096 character limit per message)
-        if (replyText.length <= 4096) {
-          await sendTelegramMessage(botToken, chatId, replyText, true)
-        } else {
-          // Split long messages
-          const parts = splitMessage(replyText, 4096)
-          for (const part of parts) {
-            await sendTelegramMessage(botToken, chatId, part, true)
-            await new Promise(resolve => setTimeout(resolve, 1000)) // Delay between messages
-          }
-        }
-      } else {
-        await sendTelegramMessage(botToken, chatId, "❌ Sorry, I couldn't fetch the transcript for this video.", false)
-      }
-    } catch (error) {
-      await sendTelegramMessage(botToken, chatId, "❌ An error occurred while processing your request.", false)
+    if (!videoUrl) {
+      return new Response(JSON.stringify({ error: 'URL parameter is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      })
     }
-    return new Response(JSON.stringify({ status: true }), { headers })
-  }
 
-  // Handle non-YouTube messages
-  await sendTelegramMessage(botToken, chatId, "Please send me a valid YouTube URL to get the transcript.", false)
-  return new Response(JSON.stringify({ status: true }), { headers })
+    // Validate the URL is from allowed domains
+    const allowedDomains = ['freeterabox.com', 'www.freeterabox.com', 'terafileshare.com']
+    const urlObj = new URL(videoUrl)
+    if (!allowedDomains.includes(urlObj.hostname)) {
+      return new Response(JSON.stringify({ error: 'Domain not allowed' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }
+
+    // Fetch the video page to extract information
+    const response = await fetch(videoUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    })
+    
+    const html = await response.text()
+    
+    // Extract video information (this will need to be customized based on the actual site structure)
+    const videoInfo = extractVideoInfo(html, videoUrl)
+    
+    return new Response(JSON.stringify(videoInfo), {
+      headers: { 'Content-Type': 'application/json' }
+    })
+    
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    })
+  }
 }
 
-async function getYoutubeTranscript(videoUrl, format = true) {
-  // Extract video ID
-  const regex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([^\?&"'>]+)/
-  const match = videoUrl.match(regex)
+function extractVideoInfo(html, originalUrl) {
+  // This is a placeholder - you'll need to customize this based on the actual HTML structure
+  // of the sites you're working with
   
-  if (!match || !match[1]) {
-    return JSON.stringify({
-      status: false,
-      transcript: "Not available",
-      credit: "https://t.me/Teleservices_Api"
-    })
+  // Example for terafileshare.com (you'll need to inspect their page to get correct selectors)
+  const titleMatch = html.match(/<title>(.*?)<\/title>/i)
+  const title = titleMatch ? titleMatch[1] : 'Video Download'
+  
+  // Look for video sources in the HTML
+  const videoUrlMatch = html.match(/<video.*?src="(.*?)"/i) || 
+                       html.match(/source.*?src="(.*?)"/i) ||
+                       html.match(/file:\s*"(.*?)"/i)
+  
+  const videoUrl = videoUrlMatch ? videoUrlMatch[1] : null
+  
+  return {
+    title,
+    originalUrl,
+    videoUrl: videoUrl ? makeAbsoluteUrl(videoUrl, originalUrl) : null,
+    thumbnailUrl: null, // You can extract this similarly if available
+    duration: null,     // Extract if available
+    filename: videoUrl ? videoUrl.split('/').pop() : null
+  }
+}
+
+function makeAbsoluteUrl(url, baseUrl) {
+  if (url.startsWith('http')) return url
+  if (url.startsWith('//')) return `https:${url}`
+  
+  const base = new URL(baseUrl)
+  if (url.startsWith('/')) {
+    return `${base.protocol}//${base.host}${url}`
   }
   
-  const videoId = match[1]
+  return `${base.protocol}//${base.host}${base.pathname.split('/').slice(0, -1).join('/')}/${url}`
+}
 
-  // Prepare the POST data
-  const postData = JSON.stringify({
-    video_id: videoId,
-    format: format
-  })
+async function handleDownloadRequest(request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const videoUrl = searchParams.get('url')
+    
+    if (!videoUrl) {
+      return new Response('URL parameter is required', { status: 400 })
+    }
 
-  // Make the API request
-  const apiUrl = "https://api.kome.ai/api/tools/youtube-transcripts"
-  const response = await fetch(apiUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': postData.length.toString()
-    },
-    body: postData
-  })
+    // Validate the URL is from allowed domains
+    const allowedDomains = ['freeterabox.com', 'www.freeterabox.com', 'terafileshare.com']
+    const urlObj = new URL(videoUrl)
+    if (!allowedDomains.includes(urlObj.hostname)) {
+      return new Response('Domain not allowed', { status: 403 })
+    }
 
-  if (!response.ok) {
-    return JSON.stringify({
-      status: false,
-      transcript: "",
-      credit: "https://t.me/Teleservices_Api"
+    // Fetch the video with streaming
+    const videoResponse = await fetch(videoUrl, {
+      headers: {
+        'Referer': urlObj.origin,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
     })
-  }
 
-  const responseData = await response.json()
+    if (!videoResponse.ok) {
+      return new Response('Failed to fetch video', { status: videoResponse.status })
+    }
 
-  if (!responseData.transcript) {
-    return JSON.stringify({
-      status: false,
-      transcript: "Not available",
-      credit: "https://t.me/Teleservices_Api"
+    // Get filename from URL or content-disposition
+    let filename = videoUrl.split('/').pop()
+    const contentDisposition = videoResponse.headers.get('content-disposition')
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="?(.*?)"?$/i)
+      if (filenameMatch) filename = filenameMatch[1]
+    }
+
+    // Ensure filename ends with .mp4
+    if (!filename.toLowerCase().endsWith('.mp4')) {
+      filename = filename.split('.')[0] + '.mp4'
+    }
+
+    // Create new headers
+    const headers = new Headers(videoResponse.headers)
+    headers.set('content-disposition', `attachment; filename="${filename}"`)
+    headers.delete('content-security-policy')
+    headers.delete('x-frame-options')
+
+    return new Response(videoResponse.body, {
+      status: videoResponse.status,
+      headers: headers
     })
+    
+  } catch (error) {
+    return new Response(error.message, { status: 500 })
   }
-
-  return JSON.stringify({
-    status: true,
-    transcript: responseData.transcript,
-    credit: 'https://t.me/Teleservices_Api'
-  })
 }
 
-// Helper function to send Telegram messages
-async function sendTelegramMessage(botToken, chatId, text, markdown = false) {
-  const url = `https://api.telegram.org/bot${botToken}/sendMessage`
-  const body = {
-    chat_id: chatId,
-    text: text,
-    parse_mode: markdown ? 'Markdown' : undefined
-  }
-
-  await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(body)
-  })
+async function proxyRequest(request) {
+  const url = new URL(request.url)
+  const newRequest = new Request(request)
+  
+  // Modify headers if needed
+  newRequest.headers.set('X-Forwarded-Host', url.hostname)
+  
+  // Add CORS headers if this is an API request
+  const response = await fetch(url.toString(), newRequest)
+  const newResponse = new Response(response.body, response)
+  
+  newResponse.headers.set('Access-Control-Allow-Origin', '*')
+  newResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type')
+  
+  return newResponse
 }
 
-// Helper function to check if a string is a YouTube URL
-function isYoutubeUrl(text) {
-  const pattern = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/
-  return pattern.test(text)
-}
+const htmlHomePage = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Video Downloader</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #0066ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0055dd;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        .video-info {
+            margin-bottom: 15px;
+        }
+        .download-btn {
+            display: inline-block;
+            margin-top: 10px;
+            text-decoration: none;
+            background: #28a745;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 4px;
+        }
+        .download-btn:hover {
+            background: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Video Downloader</h1>
+        <p>Enter a video URL from freeterabox.com or terafileshare.com to download</p>
+        
+        <input type="text" id="videoUrl" placeholder="https://freeterabox.com/example-video" />
+        <button onclick="getVideoInfo()">Get Video Info</button>
+        
+        <div id="result">
+            <div class="video-info">
+                <h3 id="videoTitle"></h3>
+                <p id="videoDetails"></p>
+                <a id="downloadLink" class="download-btn" href="#" target="_blank">Download MP4</a>
+            </div>
+        </div>
+    </div>
 
-// Helper function to split long messages
-function splitMessage(text, maxLength) {
-  const parts = []
-  while (text.length) {
-    const part = text.substring(0, maxLength)
-    parts.push(part)
-    text = text.substring(maxLength)
-  }
-  return parts
-}
+    <script>
+        async function getVideoInfo() {
+            const videoUrl = document.getElementById('videoUrl').value.trim()
+            if (!videoUrl) {
+                alert('Please enter a video URL')
+                return
+            }
+
+            try {
+                const response = await fetch('/api/video-info?url=' + encodeURIComponent(videoUrl))
+                const data = await response.json()
+                
+                if (data.error) {
+                    throw new Error(data.error)
+                }
+
+                document.getElementById('videoTitle').textContent = data.title || 'Video Download'
+                
+                let details = ''
+                if (data.duration) details += 'Duration: ' + data.duration + '<br>'
+                if (data.filename) details += 'File: ' + data.filename + '<br>'
+                
+                document.getElementById('videoDetails').innerHTML = details
+                
+                if (data.videoUrl) {
+                    const downloadLink = document.getElementById('downloadLink')
+                    downloadLink.href = '/download?url=' + encodeURIComponent(data.videoUrl)
+                    downloadLink.style.display = 'inline-block'
+                } else {
+                    document.getElementById('downloadLink').style.display = 'none'
+                }
+                
+                document.getElementById('result').style.display = 'block'
+            } catch (error) {
+                alert('Error: ' + error.message)
+                console.error(error)
+            }
+        }
+    </script>
+</body>
+</html>
+`
