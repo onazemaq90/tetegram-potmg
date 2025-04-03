@@ -26,7 +26,7 @@ async function handleRequest(request) {
   }
 
   // For other requests, proxy to the original site if it's one of our target domains
-  const allowedDomains = ['freeterabox.com', 'www.freeterabox.com', 'terafileshare.com']
+  const allowedDomains = ['freeterabox.com', 'www.freeterabox.com', 'terafileshare.com', 'www.terabox.club']
   if (allowedDomains.includes(url.hostname)) {
     return proxyRequest(request)
   }
@@ -38,7 +38,7 @@ async function handleVideoInfoAPI(request) {
   try {
     const { searchParams } = new URL(request.url)
     const videoUrl = searchParams.get('url')
-    
+
     if (!videoUrl) {
       return new Response(JSON.stringify({ error: 'URL parameter is required' }), {
         status: 400,
@@ -47,7 +47,7 @@ async function handleVideoInfoAPI(request) {
     }
 
     // Validate the URL is from allowed domains
-    const allowedDomains = ['freeterabox.com', 'www.freeterabox.com', 'terafileshare.com']
+    const allowedDomains = ['freeterabox.com', 'www.freeterabox.com', 'terafileshare.com', 'www.terabox.club']
     const urlObj = new URL(videoUrl)
     if (!allowedDomains.includes(urlObj.hostname)) {
       return new Response(JSON.stringify({ error: 'Domain not allowed' }), {
@@ -62,16 +62,16 @@ async function handleVideoInfoAPI(request) {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
       }
     })
-    
+
     const html = await response.text()
-    
+
     // Extract video information (this will need to be customized based on the actual site structure)
     const videoInfo = extractVideoInfo(html, videoUrl)
-    
+
     return new Response(JSON.stringify(videoInfo), {
       headers: { 'Content-Type': 'application/json' }
     })
-    
+
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
@@ -83,18 +83,18 @@ async function handleVideoInfoAPI(request) {
 function extractVideoInfo(html, originalUrl) {
   // This is a placeholder - you'll need to customize this based on the actual HTML structure
   // of the sites you're working with
-  
+
   // Example for terafileshare.com (you'll need to inspect their page to get correct selectors)
   const titleMatch = html.match(/<title>(.*?)<\/title>/i)
   const title = titleMatch ? titleMatch[1] : 'Video Download'
-  
+
   // Look for video sources in the HTML
   const videoUrlMatch = html.match(/<video.*?src="(.*?)"/i) || 
                        html.match(/source.*?src="(.*?)"/i) ||
                        html.match(/file:\s*"(.*?)"/i)
-  
+
   const videoUrl = videoUrlMatch ? videoUrlMatch[1] : null
-  
+
   return {
     title,
     originalUrl,
@@ -108,12 +108,12 @@ function extractVideoInfo(html, originalUrl) {
 function makeAbsoluteUrl(url, baseUrl) {
   if (url.startsWith('http')) return url
   if (url.startsWith('//')) return `https:${url}`
-  
+
   const base = new URL(baseUrl)
   if (url.startsWith('/')) {
     return `${base.protocol}//${base.host}${url}`
   }
-  
+
   return `${base.protocol}//${base.host}${base.pathname.split('/').slice(0, -1).join('/')}/${url}`
 }
 
@@ -121,13 +121,13 @@ async function handleDownloadRequest(request) {
   try {
     const { searchParams } = new URL(request.url)
     const videoUrl = searchParams.get('url')
-    
+
     if (!videoUrl) {
       return new Response('URL parameter is required', { status: 400 })
     }
 
     // Validate the URL is from allowed domains
-    const allowedDomains = ['freeterabox.com', 'www.freeterabox.com', 'terafileshare.com']
+    const allowedDomains = ['freeterabox.com', 'www.freeterabox.com', 'terafileshare.com', 'www.terabox.club']
     const urlObj = new URL(videoUrl)
     if (!allowedDomains.includes(urlObj.hostname)) {
       return new Response('Domain not allowed', { status: 403 })
@@ -168,7 +168,7 @@ async function handleDownloadRequest(request) {
       status: videoResponse.status,
       headers: headers
     })
-    
+
   } catch (error) {
     return new Response(error.message, { status: 500 })
   }
@@ -177,18 +177,18 @@ async function handleDownloadRequest(request) {
 async function proxyRequest(request) {
   const url = new URL(request.url)
   const newRequest = new Request(request)
-  
+
   // Modify headers if needed
   newRequest.headers.set('X-Forwarded-Host', url.hostname)
-  
+
   // Add CORS headers if this is an API request
   const response = await fetch(url.toString(), newRequest)
   const newResponse = new Response(response.body, response)
-  
+
   newResponse.headers.set('Access-Control-Allow-Origin', '*')
   newResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
   newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type')
-  
+
   return newResponse
 }
 
