@@ -2,8 +2,24 @@ addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request))
 })
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Expose-Headers': 'Content-Disposition'
+}
+
+const ALLOWED_DOMAINS = [
+  'freeterabox.com',
+  'www.freeterabox.com',
+  'terafileshare.com',
+  'www.terabox.club'
+]
+
+const CUSTOM_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+
 async function handleRequest(request) {
-  // Handle CORS preflight requests
+  // Handle CORS preflight
   if (request.method === 'OPTIONS') {
     return new Response(null, {
       headers: corsHeaders
@@ -11,163 +27,161 @@ async function handleRequest(request) {
   }
 
   const url = new URL(request.url)
-  const path = url.pathname
-  const host = url.hostname
-
-  // Allowed domains
-  const allowedDomains = [
-    'freeterabox.com',
-    'www.freeterabox.com',
-    'terafileshare.com'
-  ]
-
-  // Check if request is coming from allowed domain
-  if (!allowedDomains.includes(host)) {
-    return new Response('Forbidden', { status: 403 })
-  }
+  const targetUrl = url.searchParams.get('url')
 
   // API endpoint for getting video info
-  if (path.startsWith('/api/info')) {
-    return handleVideoInfoRequest(request)
+  if (url.pathname === '/api/info' && targetUrl) {
+    return getVideoInfo(targetUrl)
   }
 
-  // Download endpoint
-  if (path.startsWith('/download')) {
-    return handleDownloadRequest(request)
+  // Direct download endpoint
+  if (url.pathname === '/api/download' && targetUrl) {
+    return handleDownload(targetUrl, request)
   }
 
   // Default response
   return new Response(JSON.stringify({
     endpoints: {
-      '/api/info?url=[video_url]': 'Get video information',
-      '/download?url=[video_url]': 'Download video as MP4'
-    }
+      info: '/api/info?url=[TeraBox_URL]',
+      download: '/api/download?url=[TeraBox_URL]'
+    },
+    allowed_domains: ALLOWED_DOMAINS
   }), {
     headers: {
-      'Content-Type': 'application/json',
-      ...corsHeaders
+      ...corsHeaders,
+      'Content-Type': 'application/json'
     }
   })
 }
 
-async function handleVideoInfoRequest(request) {
-  const url = new URL(request.url)
-  const videoUrl = url.searchParams.get('url')
+async function getVideoInfo(targetUrl) {
+  try {
+    const targetDomain = new URL(targetUrl).hostname
+    if (!ALLOWED_DOMAINS.includes(targetDomain)) {
+      throw new Error('Domain not allowed')
+    }
 
-  if (!videoUrl) {
-    return new Response(JSON.stringify({ error: 'Missing video URL parameter' }), {
-      status: 400,
+    // Fetch the page to extract video info
+    const response = await fetch(targetUrl, {
       headers: {
-        'Content-Type': 'application/json',
-        ...corsHeaders
+        'User-Agent': CUSTOM_USER_AGENT
       }
     })
-  }
-
-  try {
-    // Fetch the video headers to get info without downloading the whole file
-    const headResponse = await fetch(videoUrl, { method: 'HEAD' })
     
-    if (!headResponse.ok) {
-      throw new Error('Failed to fetch video info')
+    const html = await response.text()
+    
+    // This is a simplified example - you'll need to adjust the parsing for the specific site
+    const titleMatch = html.match(/<title>(.*?)<\/title>/i)
+    const videoMatch = html.match(/<video.*?src="(.*?)"/i)
+    
+    if (!videoMatch || !videoMatch[1]) {
+      throw new Error('Video URL not found in page')
     }
-
-    // Extract filename from URL or Content-Disposition header
-    let filename = videoUrl.split('/').pop()
-    const contentDisposition = headResponse.headers.get('Content-Disposition')
-    if (contentDisposition) {
-      const match = contentDisposition.match(/filename="?([^"]+)"?/)
-      if (match) filename = match[1]
-    }
-
-    // Ensure filename ends with .mp4
-    if (!filename.toLowerCase().endsWith('.mp4')) {
-      filename = filename.split('?')[0] + '.mp4'
-    }
-
-    // Get file size
-    const size = headResponse.headers.get('Content-Length') || 'unknown'
-
-    // Get last modified date
-    const lastModified = headResponse.headers.get('Last-Modified') || new Date().toUTCString()
-
-    // Response with video info
+    
+    const videoUrl = videoMatch[1].startsWith('http') ? videoMatch[1] : new URL(videoMatch[1], targetUrl).toString()
+    
+    // Get video headers to determine size
+    const headResponse = await fetch(videoUrl, {
+      method: 'HEAD',
+      headers: {
+        'User-Agent': CUSTOM_USER_AGENT
+      }
+    })
+    
+    const contentLength = headResponse.headers.get('content-length')
+    const contentType = headResponse.headers.get('content-type') || 'video/mp4'
+    const lastModified = headResponse.headers.get('last-modified') || new Date().toUTCString()
+    
     return new Response(JSON.stringify({
-      filename,
-      size,
-      lastModified,
-      type: headResponse.headers.get('Content-Type'),
-      url: videoUrl
+      success: true,
+      data: {
+        title: titleMatch ? titleMatch[1] : 'Untitled',
+        url: videoUrl,
+        download_url: `${new URL(request.url).origin}/api/download?url=${encodeURIComponent(targetUrl)}`,
+        size: contentLength ? parseInt(contentLength) : null,
+        type: contentType,
+        last_modified: lastModified,
+        filename: titleMatch ? `${titleMatch[1].replace(/[^a-z0-9]/gi, '_').substring(0, 50)}.mp4` : 'video.mp4'
+      }
     }), {
       headers: {
-        'Content-Type': 'application/json',
-        ...corsHeaders
+        ...corsHeaders,
+        'Content-Type': 'application/json'
       }
     })
-
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 400,
       headers: {
-        'Content-Type': 'application/json',
-        ...corsHeaders
+        ...corsHeaders,
+        'Content-Type': 'application/json'
       }
     })
   }
 }
 
-async function handleDownloadRequest(request) {
-  const url = new URL(request.url)
-  const videoUrl = url.searchParams.get('url')
-
-  if (!videoUrl) {
-    return new Response('Missing video URL parameter', { status: 400 })
-  }
-
+async function handleDownload(targetUrl, originalRequest) {
   try {
-    // Fetch the video
-    const videoResponse = await fetch(videoUrl)
-
-    if (!videoResponse.ok) {
-      throw new Error('Failed to fetch video')
+    const targetDomain = new URL(targetUrl).hostname
+    if (!ALLOWED_DOMAINS.includes(targetDomain)) {
+      throw new Error('Domain not allowed')
     }
 
-    // Extract filename
-    let filename = videoUrl.split('/').pop()
-    const contentDisposition = videoResponse.headers.get('Content-Disposition')
-    if (contentDisposition) {
-      const match = contentDisposition.match(/filename="?([^"]+)"?/)
-      if (match) filename = match[1]
+    // First get video info to determine the actual video URL
+    const infoResponse = await getVideoInfo(targetUrl)
+    const info = await infoResponse.json()
+    
+    if (!info.success || !info.data.url) {
+      throw new Error('Could not retrieve video information')
     }
-
-    // Ensure filename ends with .mp4
-    if (!filename.toLowerCase().endsWith('.mp4')) {
-      filename = filename.split('?')[0] + '.mp4'
-    }
-
-    // Create a new response with the video and appropriate headers
-    const response = new Response(videoResponse.body, {
+    
+    const videoUrl = info.data.url
+    
+    // Fetch the video with streaming
+    const videoResponse = await fetch(videoUrl, {
       headers: {
-        'Content-Type': 'video/mp4',
-        'Content-Disposition': `attachment; filename="${filename}"`,
-        ...corsHeaders
+        'User-Agent': CUSTOM_USER_AGENT,
+        'Range': originalRequest.headers.get('Range') || '',
+        'Referer': targetUrl
       }
     })
-
+    
+    // Create a new response with the video stream and appropriate headers
+    const response = new Response(videoResponse.body, {
+      status: videoResponse.status,
+      statusText: videoResponse.statusText,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': info.data.type || 'video/mp4',
+        'Content-Length': videoResponse.headers.get('Content-Length') || info.data.size || '',
+        'Content-Disposition': `attachment; filename="${info.data.filename}"`,
+        'Accept-Ranges': 'bytes',
+        'Last-Modified': info.data.last_modified
+      }
+    })
+    
+    // Copy relevant headers from the video response
+    const headersToCopy = ['Content-Range', 'Content-Length']
+    headersToCopy.forEach(header => {
+      if (videoResponse.headers.has(header)) {
+        response.headers.set(header, videoResponse.headers.get(header))
+      }
+    })
+    
     return response
-
   } catch (error) {
-    return new Response(error.message, { status: 500 })
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 400,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
+      }
+    })
   }
 }
-
-// CORS headers configuration
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Max-Age': '86400'
-}
-
-// Custom user agent
-const customUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124'
