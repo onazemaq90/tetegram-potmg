@@ -69,7 +69,7 @@ async function handleTelegramUpdate(update, headers) {
 
   const message = update.message.text
   const chatId = update.message.chat.id
-  const botToken = 'YOUR_TELEGRAM_BOT_TOKEN' // Replace with your bot token
+  const botToken = '7286429810:AAFBRan5i76hT2tlbxzpjFYwJKRQhLh5kPY' // Replace with your bot token
 
   // Handle /start command
   if (message.startsWith('/start')) {
