@@ -69,7 +69,7 @@ async function handleUpdate(update) {
       await deleteMessage(chatId, processingMsg.result.message_id);
       
       // Check if file is an MP4 and within size limits
-      if (filename.endsWith('.mp4') {
+      if (filename.endsWith('.mp4')) {
         if (sizeMB <= MAX_TELEGRAM_SIZE) {
           // Send video directly through Telegram
           const sentMessage = await sendVideo(chatId, downloadLink, filename, fileSizeText);
@@ -142,7 +142,7 @@ async function sendDownloadLink(chatId, filename, fileSizeText, downloadLink) {
   }
 }
 
-// Existing helper functions (keep these from previous implementation)
+// Existing helper functions
 async function sendMessage(chatId, text, replyMarkup) {
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
   const body = {
