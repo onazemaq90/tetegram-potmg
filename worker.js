@@ -1,21 +1,19 @@
-// worker.js
 addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request))
 })
 
 const BOT_TOKEN = '7150790470:AAG1_GlWrq3SQSD0e5R8dTx487jBydO7IBI';
-const MAX_VIDEO_SIZE = 50;
+const MAX_VIDEO_SIZE = 50; // MB
+const MAX_TELEGRAM_SIZE = 50; // Telegram's file size limit is 50MB for bots
 const teraboxUrlRegex = /^https?:\/\/(?:www\.)?(?:[\w-]+\.)?(terabox\.com|1024terabox\.com|teraboxapp\.com|terafileshare\.com|teraboxlink\.com|terasharelink\.com)\/(s|sharing)\/[\w-]+/i;
 
 async function handleRequest(request) {
   const url = new URL(request.url);
   
-  // Handle webhook verification
   if (request.method === 'GET' && url.pathname === '/') {
     return new Response('🤖 Bot is running on Cloudflare Workers!');
   }
   
-  // Handle Telegram webhook
   if (request.method === 'POST' && url.pathname === '/webhook') {
     const update = await request.json();
     return handleUpdate(update);
@@ -25,8 +23,7 @@ async function handleRequest(request) {
 }
 
 async function handleUpdate(update) {
-  // Initialize session (simplified for Workers)
-  const chatId = update.message?.chat.id || update.callback_query?.message.chat.id;
+  const chatId = update.message?.chat.id;
   if (!chatId) return new Response('OK');
   
   // Handle /start command
@@ -47,18 +44,10 @@ async function handleUpdate(update) {
   // Handle TeraBox links
   if (update.message?.text && teraboxUrlRegex.test(update.message.text.trim())) {
     const text = update.message.text.trim();
-    
-    // Check for duplicate links (simplified session handling)
-    // Note: For proper session handling, you'd need to use Workers KV
-    // const lastLink = await getSession(chatId);
-    // if (lastLink === text) {
-    //   await sendMessage(chatId, '⚠️ You already sent this link. Please wait...');
-    //   return new Response('OK');
-    // }
-    // await setSession(chatId, text);
+    let processingMsg;
     
     try {
-      const processingMsg = await sendMessage(chatId, '⏳ Processing link...');
+      processingMsg = await sendMessage(chatId, '⏳ Processing link...');
       const apiUrl = `https://wdzone-terabox-api.vercel.app/api?url=${encodeURIComponent(text)}`;
       
       const response = await fetch(apiUrl, { timeout: 120000 });
@@ -79,27 +68,32 @@ async function handleUpdate(update) {
       
       await deleteMessage(chatId, processingMsg.result.message_id);
       
-      const keyboard = {
-        inline_keyboard: [
-          [{ text: '🔗 Download Now', url: downloadLink }]
-        ]
-      };
-      
-      if (sizeMB > MAX_VIDEO_SIZE) {
-        await sendMessage(
-          chatId,
-          `⚠️ File too large to send!\n\n📁 ${filename}\n📏 ${fileSizeText}`,
-          keyboard
-        );
+      // Check if file is an MP4 and within size limits
+      if (filename.endsWith('.mp4') {
+        if (sizeMB <= MAX_TELEGRAM_SIZE) {
+          // Send video directly through Telegram
+          const sentMessage = await sendVideo(chatId, downloadLink, filename, fileSizeText);
+          
+          if (!sentMessage.ok) {
+            // Fallback to sending download link if video send fails
+            await sendDownloadLink(chatId, filename, fileSizeText, downloadLink);
+          }
+        } else {
+          // File too large - send download link
+          await sendDownloadLink(chatId, filename, fileSizeText, downloadLink);
+        }
       } else {
-        await sendMessage(
-          chatId,
-          `✅ Here's your download link:\n\n📁 ${filename}\n📏 ${fileSizeText}`,
-          keyboard
-        );
+        // Not an MP4 - send download link
+        await sendDownloadLink(chatId, filename, fileSizeText, downloadLink);
       }
+      
     } catch (err) {
       console.error('Error:', err);
+      try {
+        if (processingMsg?.result?.message_id) {
+          await deleteMessage(chatId, processingMsg.result.message_id);
+        }
+      } catch (e) {}
       await sendMessage(chatId, '❌ Failed to process the link. Please try again later.');
     }
   }
@@ -107,7 +101,48 @@ async function handleUpdate(update) {
   return new Response('OK');
 }
 
-// Telegram API helpers
+// Send video directly through Telegram
+async function sendVideo(chatId, videoUrl, filename, fileSizeText) {
+  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`;
+  const body = {
+    chat_id: chatId,
+    video: videoUrl,
+    caption: `🎥 ${filename}\n📏 ${fileSizeText}`,
+    supports_streaming: true,
+    parse_mode: 'HTML'
+  };
+  
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }).then(r => r.json());
+}
+
+// Send download link as fallback
+async function sendDownloadLink(chatId, filename, fileSizeText, downloadLink) {
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: '🔗 Download Now', url: downloadLink }]
+    ]
+  };
+  
+  if (parseFloat(fileSizeText.replace('MB', '')) > MAX_VIDEO_SIZE) {
+    await sendMessage(
+      chatId,
+      `⚠️ File too large to send!\n\n📁 ${filename}\n📏 ${fileSizeText}`,
+      keyboard
+    );
+  } else {
+    await sendMessage(
+      chatId,
+      `✅ Here's your download link:\n\n📁 ${filename}\n📏 ${fileSizeText}`,
+      keyboard
+    );
+  }
+}
+
+// Existing helper functions (keep these from previous implementation)
 async function sendMessage(chatId, text, replyMarkup) {
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
   const body = {
