@@ -1,5 +1,5 @@
-const BOT_TOKEN = '7150790470:AAG1_GlWrq3SQSD0e5R8dTx487jBydO7IBI'; // Use env.BOT_TOKEN in production
-const MAX_VIDEO_SIZE = 50;
+const BOT_TOKEN = '7150790470:AAG1_GlWrq3SQSD0e5R8dTx487jBydO7IBI'; // Replace with env var in production
+const MAX_VIDEO_SIZE = 50; // Telegram bot API limit (in MB)
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 const teraboxUrlRegex = /^https?:\/\/(?:www\.)?(?:[\w-]+\.)?(terabox\.com|1024terabox\.com|teraboxapp\.com|terafileshare\.com|teraboxlink\.com|terasharelink\.com)\/(s|sharing)\/[\w-]+/i;
 
@@ -18,7 +18,7 @@ async function sendTelegramMessage(chatId, text, extra = {}) {
 }
 
 // Utility to edit Telegram messages
-async function editTelegramMessage(chatId, messageId, text) {
+async function editTelegramMessage(chatId, messageId, text, extra = {}) {
   const response = await fetch(`${TELEGRAM_API}/editMessageText`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -26,6 +26,7 @@ async function editTelegramMessage(chatId, messageId, text) {
       chat_id: chatId,
       message_id: messageId,
       text,
+      ...extra,
     }),
   });
   return response.json();
@@ -57,6 +58,19 @@ async function sendTelegramVideo(chatId, videoUrl, caption) {
   return response.json();
 }
 
+// Simulate download progress (since Workers can't stream)
+async function simulateDownloadProgress(chatId, messageId, fileSizeMB) {
+  let progress = 0;
+  const totalSizeMB = fileSizeMB || 0;
+
+  while (progress < 100) {
+    progress += 20; // Increment by 20% for simplicity
+    const downloadedMB = ((progress / 100) * totalSizeMB).toFixed(2);
+    await editTelegramMessage(chatId, messageId, `⬇️ Downloading (${progress}%)\n${downloadedMB} MB / ${totalSizeMB} MB`);
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate delay
+  }
+}
+
 addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request));
 });
@@ -75,23 +89,28 @@ async function handleRequest(request) {
     return new Response('OK', { status: 200 });
   }
 
+  // Handle /start command
   if (text === '/start') {
     await sendTelegramMessage(chatId, '👋 Welcome to TeraBox Downloader Bot!\n\nSend me a TeraBox sharing link to download files.', {
       reply_markup: {
         inline_keyboard: [[{ text: '📌 Join Channel', url: 'https://t.me/Opleech_WD' }]],
       },
+      photo: 'https://graph.org/file/4e8a1172e8ba4b7a0bdfa.jpg',
     });
     return new Response('OK', { status: 200 });
   }
 
+  // Check if the text is a valid TeraBox URL
   if (!teraboxUrlRegex.test(text)) {
     return new Response('OK', { status: 200 });
   }
 
   try {
+    // Send "Processing" message
     const processing = await sendTelegramMessage(chatId, '⏳ Processing link...');
     const processingMessageId = processing.result.message_id;
 
+    // Fetch file info from the API
     const apiUrl = `https://wdzone-terabox-api.vercel.app/api?url=${encodeURIComponent(text)}`;
     const apiResponse = await fetch(apiUrl, { timeout: 120000 });
     const data = await apiResponse.json();
@@ -117,34 +136,22 @@ async function handleRequest(request) {
           inline_keyboard: [[{ text: '🔗 Download Link', url: downloadLink }]],
         },
       });
-      return new Response('OK', { status: 200 });
+    } else {
+      // Start download simulation
+      const startMsg = await sendTelegramMessage(chatId, `🚀 Starting download (0%)...\n0 MB / ${sizeMB} MB`);
+      await simulateDownloadProgress(chatId, startMsg.result.message_id, sizeMB);
+
+      // Notify download complete
+      await editTelegramMessage(chatId, startMsg.result.message_id, `✅ Download complete! Preparing upload...\n📁 ${filename}\n📏 ${fileSizeText}`);
+
+      // Send the video
+      await sendTelegramVideo(chatId, downloadLink, `✅ Video ready!\n📁 ${filename}\n📏 ${fileSizeText}`);
     }
-
-    // Start download simulation
-    const downloadStart = await sendTelegramMessage(chatId, '🚀 Starting download (0%)...');
-    const downloadMessageId = downloadStart.result.message_id;
-
-    // Simulate progress (since we can't stream, we'll fake it with time-based updates)
-    for (let percent = 10; percent <= 90; percent += 10) {
-      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
-      await editTelegramMessage(chatId, downloadMessageId, `⬇️ Downloading (${percent}%) ${Math.round(sizeMB * (percent / 100))}MB/${sizeMB}MB`);
-    }
-
-    // Fetch the video
-    const videoResponse = await fetch(downloadLink);
-    const videoBlob = await videoResponse.blob();
-
-    // Final progress update
-    await editTelegramMessage(chatId, downloadMessageId, `⬇️ Downloading (100%) ${sizeMB}MB/${sizeMB}MB`);
-
-    // Send the video (Note: This won't work directly with blob in Workers; use a URL or external service)
-    await sendTelegramVideo(chatId, downloadLink, `✅ Video downloaded!\n\n📁 ${filename}\n📏 ${fileSizeText}`);
-    await deleteTelegramMessage(chatId, downloadMessageId);
 
   } catch (err) {
     console.error('Error:', err);
     await deleteTelegramMessage(chatId, processingMessageId).catch(() => {});
-    await sendTelegramMessage(chatId, '❌ Failed to process the link or download the video. Please try again later.');
+    await sendTelegramMessage(chatId, '❌ Failed to process the link. Please try again later.');
   }
 
   return new Response('OK', { status: 200 });
