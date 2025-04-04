@@ -1,27 +1,47 @@
-// index.js for your Cloudflare Worker
 export default {
   async fetch(request, env) {
-    // Set Indian time zone
-    const options = {
-      timeZone: 'Asia/Kolkata',
-      hour12: true,
-      hour: 'numeric',
-      minute: 'numeric',
-      second: 'numeric',
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    };
+    // Parse URL to check for country parameter
+    const url = new URL(request.url);
+    const country = url.searchParams.get('country') || 'india';
     
-    const indianTime = new Date().toLocaleString('en-IN', options);
+    // Set time options based on country
+    let options, timeZoneName;
+    if (country === 'us') {
+      options = {
+        timeZone: 'America/New_York',
+        hour12: true,
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      };
+      timeZoneName = 'Eastern Time (US)';
+    } else { // Default to India
+      options = {
+        timeZone: 'Asia/Kolkata',
+        hour12: true,
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      };
+      timeZoneName = 'Indian Standard Time';
+    }
     
-    // Create a colorful 3D-inspired page
+    const localTime = new Date().toLocaleString('en-US', options);
+    
+    // Create HTML with toggle button
     const html = `
     <!DOCTYPE html>
     <html>
     <head>
-      <title>🕒 Indian Time | 3D Web Dev</title>
+      <title>🌐 World Time | 3D Web Dev</title>
       <style>
         body {
           font-family: 'Arial', sans-serif;
@@ -65,6 +85,36 @@ export default {
           transform: translateZ(30px);
         }
         
+        .country-buttons {
+          margin: 20px 0;
+          display: flex;
+          justify-content: center;
+          gap: 15px;
+        }
+        
+        .country-btn {
+          background: rgba(0, 210, 255, 0.3);
+          color: white;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 30px;
+          cursor: pointer;
+          font-weight: bold;
+          transition: all 0.3s;
+          backdrop-filter: blur(5px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .country-btn:hover {
+          background: rgba(0, 210, 255, 0.5);
+          transform: translateY(-3px);
+        }
+        
+        .country-btn.active {
+          background: rgba(255, 138, 0, 0.7);
+          box-shadow: 0 0 15px rgba(255, 138, 0, 0.5);
+        }
+        
         .hacker-text {
           font-family: 'Courier New', monospace;
           color: lime;
@@ -78,29 +128,34 @@ export default {
           50% { transform: translateY(-20px) rotateY(5deg); }
           100% { transform: translateY(0px) rotateY(0deg); }
         }
-        
-        .ai-badge {
-          position: absolute;
-          top: 20px;
-          right: 20px;
-          background: rgba(0, 210, 255, 0.2);
-          padding: 5px 10px;
-          border-radius: 20px;
-          font-size: 0.8rem;
-        }
       </style>
     </head>
     <body>
       <div class="time-container">
-        <div class="ai-badge">AI ☄️ Hacker Edition</div>
-        <h1>Indian Standard Time</h1>
-        <div class="time">${indianTime.split(',')[1]}</div>
-        <div class="date">${indianTime.split(',')[0]}</div>
-        <div class="hacker-text">// Cloudflare Worker powered | 3D CSS transforms | ${new Date().getFullYear()}</div>
+        <h1>${timeZoneName}</h1>
+        <div class="time">${localTime.split(',')[1]}</div>
+        <div class="date">${localTime.split(',')[0]}</div>
+        
+        <div class="country-buttons">
+          <button 
+            class="country-btn ${country === 'india' ? 'active' : ''}" 
+            onclick="window.location.href='?country=india'"
+          >
+            🇮🇳 India
+          </button>
+          <button 
+            class="country-btn ${country === 'us' ? 'active' : ''}" 
+            onclick="window.location.href='?country=us'"
+          >
+            🇺🇸 US
+          </button>
+        </div>
+        
+        <div class="hacker-text">// Cloudflare Worker | Time API | ${new Date().getFullYear()}</div>
       </div>
       
       <script>
-        // Simple 3D tilt effect
+        // 3D tilt effect
         document.addEventListener('mousemove', (e) => {
           const container = document.querySelector('.time-container');
           const xAxis = (window.innerWidth / 2 - e.pageX) / 25;
