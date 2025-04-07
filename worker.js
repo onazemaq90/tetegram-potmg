@@ -377,18 +377,37 @@ async function onMessage(event, message) {
     fSave = await sendPhoto(BOT_CHANNEL, fID)
   } else {
     const buttons = [[{ text: "Source Code", url: "https://github.com/vauth/filestream-cf" }]];
-    return sendMessage(message.chat.id, message.message_id, "🎉 *Welcome to Your Bot!* 🎉
 
-✨ *Features:*
-- 📁 Upload & share files.
-- ⚡ Fast downloads.
-- 🔒 Secure links.
+function sendMessage(chatId, messageId, text, buttons) {
+    // Your implementation for sending messages
+    // This is just a placeholder - you should replace it with your actual messaging function
+}
 
-📌 *Commands:*
-- /start - Show this menu.
-- /help - Get assistance.
-- /upgrade - Go premium.", buttons)
-  }
+function handleUpdate(message) {
+    return sendMessage(
+        message.chat.id, 
+        message.message_id, 
+        `🎉 Welcome to Your Bot! 🎉
+
+✨ Features:
+
+📁 Upload & share files.
+
+⚡ Fast downloads.
+
+🔒 Secure links.
+
+
+📌 Commands:
+
+/start - Show this menu.
+
+/help - Get assistance.
+
+/upgrade - Go premium.`, 
+        buttons
+    );
+}
 
   if (fSave.error_code) {return sendMessage(message.chat.id, message.message_id, fSave.description)}
 
