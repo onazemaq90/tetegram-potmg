@@ -357,7 +357,9 @@ async function onMessage(event, message) {
 
   if (!PUBLIC_BOT && message.chat.id != BOT_OWNER) {
     const buttons = [[{ text: "Source Code", url: "https://github.com/vauth/filestream-cf" }]];
-    return sendMessage(message.chat.id, message.message_id, "*❌ Access forbidden.*\n📡 Deploy your own [filestream-cf](https://github.com/vauth/filestream-cf) bot.", buttons)
+    return sendMessage(message.chat.id, message.message_id, `Heyy
+
+I am KAKASHI HATAKE and I will send you the file free of cost.`, buttons)
   }
 
   if (message.document){
