@@ -359,7 +359,7 @@ async function onMessage(event, message) {
     const buttons = [[{ text: "Source Code", url: "https://github.com/vauth/filestream-cf" }]];
     return sendMessage(message.chat.id, message.message_id, `Heyy, ${message.from.first_name}!
 
-I am KAKASHI HATAKE and I will send you the file free of cost.`, buttons)
+I am ${message.from.bot_name} and I will send you the file free of cost.`, buttons)
   }
 
   if (message.document){
