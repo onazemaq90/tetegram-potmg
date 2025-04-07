@@ -80,10 +80,6 @@ async function RetrieveFile(channel_id, message_id) {
         fName = data.audio.file_name;
         fType = data.audio.mime_type;
         fSize = data.audio.file_size;
-    } else if (data.sticker) {
-        fID = data.sticker.file_id;
-        fName = "sticker.webp";
-        fType = "image/webp";
     } else if (data.video) {
         fLen = data.video.length - 1
         fID = data.video.file_id;
@@ -359,7 +355,7 @@ async function onMessage(event, message) {
     const buttons = [[{ text: "Source Code", url: "https://github.com/vauth/filestream-cf" }]];
     return sendMessage(message.chat.id, message.message_id, `Heyy, ${message.from.first_name}!
 
-I am ${bot_name} and I will send you the file free of cost.`, buttons)
+I am and I will send you the file free of cost.`, buttons)
   }
 
   if (message.document){
