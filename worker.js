@@ -325,90 +325,85 @@ async function onMessage(event, message) {
   }
 
   if (message.text && message.text.startsWith("/start ")) {
-    const file = message.text.split("/start ")[1]
-    try {atob(file)} catch {return await sendMessage(message.chat.id, message.message_id, ERROR_407.description)}
+  const file = message.text.split("/start ")[1];
+  let file_path;
 
-    const file_path = atob(file)
-    const channel_id = parseInt(file_path.split('/')[0])/-SIA_NUMBER
-    const message_id = parseInt(file_path.split('/')[1])/SIA_NUMBER
-    const data = await editMessage(channel_id, message_id, await UUID());
-
-    if (data.document) {
-      fID = data.document.file_id;
-      return await sendDocument(message.chat.id, fID)
-    } else if (data.audio) {
-      fID = data.audio.file_id;
-      return await sendDocument(message.chat.id, fID)
-    } else if (data.video) {
-      fID = data.video.file_id;
-      return await sendDocument(message.chat.id, fID)
-    } else if (data.photo) {
-      fID = data.photo[data.photo.length - 1].file_id;
-      return await sendPhoto(message.chat.id, fID)
-    } else {
-      return sendMessage(message.chat.id, message.message_id, "Bad Request: File not found")
-    }
+  try {
+    file_path = atob(file);
+  } catch {
+    return await sendMessage(message.chat.id, message.message_id, ERROR_407.description);
   }
 
-  if (!PUBLIC_BOT && message.chat.id != BOT_OWNER) {
-    const buttons = [[{ text: "Source Code", url: "https://github.com/vauth/filestream-cf" }]];
-    return sendMessage(message.chat.id, message.message_id, "*❌ Access forbidden.*\n📡 Deploy your own [filestream-cf](https://github.com/vauth/filestream-cf) bot.", buttons)
-  }
+  const parts = file_path.split('/');
+  const channel_id = parseInt(parts[0]) / SIA_NUMBER;
+  const message_id = parseInt(parts[1]) / SIA_NUMBER;
 
-  if (message.document){
-    fID = message.document.file_id;
-    fName = message.document.file_name;
-    fType = message.document.mime_type.split("/")[0]
-    fSave = await sendDocument(BOT_CHANNEL, fID)
-  } else if (message.audio) {
-    fID = message.audio.file_id;
-    fName = message.audio.file_name;
-    fType = message.audio.mime_type.split("/")[0]
-    fSave = await sendDocument(BOT_CHANNEL, fID)
-  } else if (message.video) {
-    fID = message.video.file_id;
-    fName = message.video.file_name;
-    fType = message.video.mime_type.split("/")[0]
-    fSave = await sendDocument(BOT_CHANNEL, fID)
-  } else if (message.photo) {
-    fID = message.photo[message.photo.length - 1].file_id;
-    fName = message.photo[message.photo.length - 1].file_unique_id + '.jpg';
-    fType = "image/jpg".split("/")[0];
-    fSave = await sendPhoto(BOT_CHANNEL, fID)
+  const data = await editMessage(channel_id, message_id, await UUID());
+
+  if (data.document) {
+    const fID = data.document.file_id;
+    return await sendDocument(message.chat.id, fID);
+  } else if (data.audio) {
+    const fID = data.audio.file_id;
+    return await sendAudio(message.chat.id, fID);
+  } else if (data.video) {
+    const fID = data.video.file_id;
+    return await sendVideo(message.chat.id, fID);
+  } else if (data.photo) {
+    const fID = data.photo[data.photo.length - 1].file_id;
+    return await sendPhoto(message.chat.id, fID);
   } else {
-    const buttons = [[{ text: "Source Code", url: "https://github.com/vauth/filestream-cf" }]];
-
-function sendMessage(chatId, messageId, text, buttons) {
-    // Your implementation for sending messages
-    // This is just a placeholder - you should replace it with your actual messaging function
+    return sendMessage(message.chat.id, message.message_id, "❌ Bad Request: File not found.");
+  }
 }
 
-function handleUpdate(message) {
-    return sendMessage(
-        message.chat.id, 
-        message.message_id, 
-        `🎉 Welcome to Your Bot! 🎉
-
-✨ Features:
-
-📁 Upload & share files.
-
-⚡ Fast downloads.
-
-🔒 Secure links.
-
-
-📌 Commands:
-
-/start - Show this menu.
-
-/help - Get assistance.
-
-/upgrade - Go premium.`, 
-        buttons
-    );
+// Block access if bot is private
+if (!PUBLIC_BOT && message.chat.id != BOT_OWNER) {
+  const buttons = [[{ text: "Source Code", url: "https://github.com/vauth/filestream-cf" }]];
+  return sendMessage(message.chat.id, message.message_id, 
+    "*❌ Access forbidden.*\n📡 Deploy your own [filestream-cf](https://github.com/vauth/filestream-cf) bot.", buttons);
 }
 
+// Handle media uploads
+let fID, fName, fType, fSave;
+
+if (message.document) {
+  fID = message.document.file_id;
+  fName = message.document.file_name;
+  fType = message.document.mime_type.split("/")[0];
+  fSave = await sendDocument(BOT_CHANNEL, fID);
+} else if (message.audio) {
+  fID = message.audio.file_id;
+  fName = message.audio.file_name;
+  fType = message.audio.mime_type.split("/")[0];
+  fSave = await sendAudio(BOT_CHANNEL, fID);
+} else if (message.video) {
+  fID = message.video.file_id;
+  fName = message.video.file_name;
+  fType = message.video.mime_type.split("/")[0];
+  fSave = await sendVideo(BOT_CHANNEL, fID);
+} else if (message.photo) {
+  const lastPhoto = message.photo[message.photo.length - 1];
+  fID = lastPhoto.file_id;
+  fName = lastPhoto.file_unique_id + ".jpg";
+  fType = "image";
+  fSave = await sendPhoto(BOT_CHANNEL, fID);
+} else {
+  const buttons = [[{ text: "Source Code", url: "https://github.com/vauth/filestream-cf" }]];
+  return sendMessage(message.chat.id, message.message_id, 
+`🎉 *Welcome to Your Bot!* 🎉
+
+✨ *Features:*
+- 📁 Upload & share files.
+- ⚡ Fast downloads.
+- 🔒 Secure links.
+
+📌 *Commands:*
+- /start - Show this menu.
+- /help - Get assistance.
+- /upgrade - Go premium.
+`, buttons);
+}
   if (fSave.error_code) {return sendMessage(message.chat.id, message.message_id, fSave.description)}
 
   const final_hash = (btoa(fSave.chat.id*-SIA_NUMBER + "/" + fSave.message_id*SIA_NUMBER)).replace(/=/g, "")
