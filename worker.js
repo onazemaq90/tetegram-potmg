@@ -387,7 +387,7 @@ async function onMessage(event, message) {
 📌 *Commands:*
 - /start - Show this menu.
 - /help - Get assistance.
-- /upgrade - Go premium.*.", buttons)
+- /upgrade - Go premium.", buttons)
   }
 
   if (fSave.error_code) {return sendMessage(message.chat.id, message.message_id, fSave.description)}
