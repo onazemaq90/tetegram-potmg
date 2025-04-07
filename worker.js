@@ -80,6 +80,12 @@ async function RetrieveFile(channel_id, message_id) {
         fName = data.audio.file_name;
         fType = data.audio.mime_type;
         fSize = data.audio.file_size;
+    } else if (data.sticker) {
+        fLen = data.sticker.length - 1
+        fID = data.sticker.file_id;
+        fName = data.sticker.file_name;
+        fType = data.sticker.mime_type;
+        fSize = data.sticker.file_size;
     } else if (data.video) {
         fLen = data.video.length - 1
         fID = data.video.file_id;
