@@ -377,7 +377,17 @@ async function onMessage(event, message) {
     fSave = await sendPhoto(BOT_CHANNEL, fID)
   } else {
     const buttons = [[{ text: "Source Code", url: "https://github.com/vauth/filestream-cf" }]];
-    return sendMessage(message.chat.id, message.message_id, "Send me any file/video/gif/audio *(t<=4GB, e<=20MB)*.", buttons)
+    return sendMessage(message.chat.id, message.message_id, "🎉 *Welcome to Your Bot!* 🎉
+
+✨ *Features:*
+- 📁 Upload & share files.
+- ⚡ Fast downloads.
+- 🔒 Secure links.
+
+📌 *Commands:*
+- /start - Show this menu.
+- /help - Get assistance.
+- /upgrade - Go premium.*.", buttons)
   }
 
   if (fSave.error_code) {return sendMessage(message.chat.id, message.message_id, fSave.description)}
