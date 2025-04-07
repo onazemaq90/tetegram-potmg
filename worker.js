@@ -6,7 +6,7 @@ const BOT_SECRET = "BOT_SECRET"; // Insert a powerful secret text (only [A-Z, a-
 const BOT_OWNER = 7912527708; // Insert your telegram account id.
 const BOT_CHANNEL = -1002682000190; // Insert your telegram channel id which the bot is admin in.
 const SIA_NUMBER = 34253; // Insert a random integer number and keep it safe.
-const PUBLIC_BOT = true; // Make your bot public (only [true, false] are allowed).
+const PUBLIC_BOT = false; // Make your bot public (only [true, false] are allowed).
 
 // ---------- Do Not Modify ---------- // 
 
@@ -258,10 +258,15 @@ async function onInline(event, inline) {
   let  fID; let fName; let fType; let fSize; let fLen;
 
   if (!PUBLIC_BOT && inline.from.id != BOT_OWNER) {
-    const buttons = [[{ text: "Source Code", url: "https://github.com/vauth/filestream-cf" }]];
-    return await answerInlineArticle(inline.id, "Access forbidden", "Deploy your own filestream-cf.", "*❌ Access forbidden.*\n📡 Deploy your own [filestream-cf](https://github.com/vauth/filestream-cf) bot.", buttons)
-  }
- 
+  const buttons = [[{ text: "channel", url: "https://github.com/vauth/filestream-cf" }]];
+  return await answerInlineArticle(
+    inline.id,
+    `Heyy
+
+I am KAKASHI HATAKE and I will send you the file free of cost.`,
+    buttons
+  );
+}
   try {atob(inline.query)} catch {
     const buttons = [[{ text: "Source Code", url: "https://github.com/vauth/filestream-cf" }]];
     return await answerInlineArticle(inline.id, "Error", ERROR_407.description, ERROR_407.description, buttons)
