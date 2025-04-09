@@ -1,5 +1,11 @@
 // ---------- Insert Your Data ---------- //
 
+// In your configuration section
+const ADMIN = [7912527708]; // Your admin user IDs
+const LOG_CHANNEL = -1002682000190; // Your log channel ID
+const __version__ = "1.0"; // Bot version
+const layer = "1"; // Bot layer
+
 const BOT_TOKEN = "7664037049:AAFTD25g8wQ-b_gLV18Kg-Zbv_b1gLtvyzY"; // Insert your bot token.
 const BOT_WEBHOOK = "/endpoint"; // Let it be as it is.
 const BOT_SECRET = "BOT_SECRET"; // Insert a powerful secret text (only [A-Z, a-z, 0-9, _, -] are allowed).
@@ -29,7 +35,12 @@ async function handleRequest(event) {
     const url = new URL(event.request.url);
     const file = url.searchParams.get('file');
     const mode = url.searchParams.get('mode') || "attachment";
-     
+
+    if (!globalThis.hasSentStartupNotification) {
+        globalThis.hasSentStartupNotification = true;
+        event.waitUntil(sendStartupNotifications());
+    }
+ 
     if (url.pathname === BOT_WEBHOOK) {return handleWebhook(event)}
     if (url.pathname === '/registerWebhook') {return registerWebhook(event, url, BOT_WEBHOOK, BOT_SECRET)}
     if (url.pathname === '/unregisterWebhook') {return unregisterWebhook(event)}
@@ -251,6 +262,59 @@ async function deleteMessage(chat_id, message_id) {
 async function answerCallbackQuery(callback_query_id, text) {
     const response = await fetch(apiUrl('answerCallbackQuery', { callback_query_id, text }));
     return await response.json();
+}
+
+// ---------- Send to admins ---------- ///
+
+async function sendStartupNotifications() {
+    const me = await getMe();
+    const now = new Date();
+    const options = { timeZone: 'Asia/Kolkata' };
+    
+    // Send to admins
+    for (const id of ADMIN) {
+        try {
+            await sendMessage(
+                id,
+                null,
+                `**${me.first_name} Is Started...** ✨`
+            );
+        } catch (e) {
+            console.log(`Failed to notify admin ${id}:`, e);
+        }
+    }
+    
+    // Send to log channel
+    if (LOG_CHANNEL) {
+        try {
+            const date = now.toLocaleDateString('en-IN', { 
+                day: 'numeric', 
+                month: 'long', 
+                year: 'numeric',
+                timeZone: 'Asia/Kolkata'
+            });
+            
+            const time = now.toLocaleTimeString('en-IN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true,
+                timeZone: 'Asia/Kolkata'
+            });
+            
+            await sendMessage(
+                LOG_CHANNEL,
+                null,
+                `**${me.first_name} Is Restarted !!**\n\n` +
+                `📅 Date: \`${date}\`\n` +
+                `⏰ Time: \`${time}\`\n` +
+                `🌐 Timezone: \`Asia/Kolkata\`\n\n` +
+                `🉐 Version: \`v${__version__} (Layer ${layer})\``
+            );
+        } catch (e) {
+            console.log("Please make the bot admin in your log channel:", e);
+        }
+    }
 }
 
 // ---------- Inline Listener ---------- // 
