@@ -232,16 +232,6 @@ async function onCallbackQuery(event, callbackQuery) {
     const messageId = callbackQuery.message.message_id;
     const callbackData = callbackQuery.data;
 
-    if (callbackQuery.data.startsWith('checksub_')) {
-        const userId = callbackQuery.data.split('_')[1];
-        
-        if (!(await notSubscribed(userId))) {
-            await answerCallbackQuery(callbackQuery.id, "✅ Thanks for joining! You can now use the bot.");
-            await deleteMessage(callbackQuery.message.chat.id, callbackQuery.message.message_id);
-        } else {
-            await answerCallbackQuery(callbackQuery.id, "❌ Please join the channel first!");
-        }
-    }
 
     // Check if it's a delete request
     if (callbackData.startsWith("delete_")) {
@@ -314,7 +304,7 @@ async function sendStartupNotifications() {
             });
             
             await sendMessage(
-                LOG_CHANNEL,
+               LOG_CHANNEL,
                 null,
                 `**${me.first_name} Is Restarted !!**\n\n` +
                 `📅 Date: \`${date}\`\n` +
@@ -326,59 +316,6 @@ async function sendStartupNotifications() {
             console.log("Please make the bot admin in your log channel:", e);
         }
     }
-}
-
-// ----------- notSubscribed --------- //
-
-async function notSubscribed(userId) {
-    if (!FORCE_SUB) return false;
-    
-    try {
-        const response = await fetch(apiUrl('getChatMember', {
-            chat_id: FORCE_SUB,
-            user_id: userId
-        }));
-        const result = await response.json();
-        
-        if (result.ok) {
-            return result.result.status === 'kicked'; // Banned users
-        }
-        return true; // Not subscribed if error
-    } catch (e) {
-        console.error("Subscription check failed:", e);
-        return true;
-    }
-}
-
-async function forceSubscribe(event, message) {
-    const userId = message.from.id;
-    const buttons = [
-        [{ text: "📢 Join Update Channel 📢", url: `https://t.me/${FORCE_SUB}` }],
-        [{ text: "🔄 Try Again", callback_data: `checksub_${userId}` }]
-    ];
-    
-    const text = `Hello ${message.from.first_name}\n\nYou need to join my channel to use me!\n\nPlease join: @${FORCE_SUB}`;
-    
-    try {
-        const response = await fetch(apiUrl('getChatMember', {
-            chat_id: FORCE_SUB,
-            user_id: userId
-        }));
-        const result = await response.json();
-        
-        if (result.ok && result.result.status === 'kicked') {
-            return sendMessage(message.chat.id, message.message_id, "Sorry, you're banned from using me");
-        }
-    } catch (e) {
-        console.error("Subscription check failed:", e);
-    }
-    
-    return sendMessage(
-        message.chat.id,
-        message.message_id,
-        text,
-        buttons
-    );
 }
 
 // ---------- Inline Listener ---------- // 
@@ -450,10 +387,6 @@ async function onMessage(event, message) {
   let url = new URL(event.request.url);
   let bot = await getMe()
 
-  if (await notSubscribed(message.from.id)) {
-    return await forceSubscribe(event, message);
-  }
-    
   if (message.via_bot && message.via_bot.username == (await getMe()).username) {
     return
   }
