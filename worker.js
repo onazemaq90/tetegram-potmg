@@ -317,6 +317,59 @@ async function sendStartupNotifications() {
     }
 }
 
+// ----------- hhc --------- //
+
+// Add to your constants section
+const FORCE_SUB = "kajal_developer"; // e.g., "my_updates_channel"
+
+// Force subscription check
+async function notSubscribed(userId) {
+    if (!FORCE_SUB) return false;
+    
+    try {
+        const response = await fetch(apiUrl('getChatMember', {
+            chat_id: FORCE_SUB,
+            user_id: userId
+        }));
+        const data = await response.json();
+        
+        if (data.result.status === 'kicked') {
+            return true; // User is banned
+        }
+        return false; // User is subscribed
+    } catch (error) {
+        return true; // Assume not subscribed if error occurs
+    }
+}
+
+// Send subscription prompt
+async function forceSubscribe(event, message) {
+    const buttons = [[
+        { text: "📢 Join Update Channel 📢", url: `https://t.me/${FORCE_SUB}` }
+    ]];
+    
+    const text = `Hello ${message.from.first_name}\n\nYou need to join my channel to use me!\n\nPlease join:`;
+    
+    try {
+        const response = await fetch(apiUrl('getChatMember', {
+            chat_id: FORCE_SUB,
+            user_id: message.from.id
+        }));
+        const data = await response.json();
+        
+        if (data.result.status === 'kicked') {
+            return sendMessage(message.chat.id, message.message_id, "Sorry, you are banned from using me.");
+        }
+    } catch (error) {
+        return sendMessage(
+            message.chat.id,
+            message.message_id,
+            text,
+            buttons
+        );
+    }
+}
+
 // ---------- Inline Listener ---------- // 
 
 async function onInline(event, inline) {
@@ -386,6 +439,10 @@ async function onMessage(event, message) {
   let url = new URL(event.request.url);
   let bot = await getMe()
 
+  if (await notSubscribed(message.from.id)) {
+    return await forceSubscribe(event, message);
+  }
+    
   if (message.via_bot && message.via_bot.username == (await getMe()).username) {
     return
   }
