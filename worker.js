@@ -385,14 +385,14 @@ I am ${message.from.bot_name} and I will send you the file free of cost.`, butto
     fSave = await sendPhoto(BOT_CHANNEL, fID)
   } else {
     const buttons = [[{ text: "Source Code", url: "https://github.com/vauth/filestream-cf" }]];
-    return sendMessage(message.chat.id, message.message_id, `ðŸŽ‰ *Welcome to Your Bot!* ðŸŽ‰
+    return sendMessage(message.chat.id, message.message_id, `🎉 *Welcome to Your Bot!* 🎉
 
-âœ¨ *Features:*
-- ðŸ“ Upload & share files.
-- âš¡ Fast downloads.
-- ðŸ”’ Secure links.
+✨ *Features:*
+- 📁 Upload & share files.
+- ⚡ Fast downloads.
+- 🔒 Secure links.
 
-ðŸ“Œ *Commands:*
+📌 *Commands:*
 - /start - Show this menu.
 - /help - Get assistance.
 - /upgrade - Go premium.
@@ -409,9 +409,9 @@ I am ${message.from.bot_name} and I will send you the file free of cost.`, butto
   const buttons = [
     [{ text: "Telegram Link", url: final_tele }, { text: "Inline Link", switch_inline_query_current_chat: final_hash }],
     [{ text: "Stream Link", url: final_stre }, { text: "Download Link", url: final_link }],
-    [{ text: "âŒ Delete File", callback_data: `delete_${fSave.message_id}` }] // New Delete button
+    [{ text: "❌ Delete File", callback_data: `delete_${fSave.message_id}` }] // New Delete button
 ];
 
-  let final_text = `*ðŸ—‚ File Name:* \`${fName}\`\n*âš™ï¸ File Hash:* \`${final_hash}\``
+  let final_text = `*🗂 File Name:* \`${fName}\`\n*⚙️ File Hash:* \`${final_hash}\``
   return sendMessage(message.chat.id, message.message_id, final_text, buttons)
 }
