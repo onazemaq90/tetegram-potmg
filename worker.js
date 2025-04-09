@@ -232,6 +232,17 @@ async function onCallbackQuery(event, callbackQuery) {
     const messageId = callbackQuery.message.message_id;
     const callbackData = callbackQuery.data;
 
+    if (callbackQuery.data.startsWith('checksub_')) {
+        const userId = callbackQuery.data.split('_')[1];
+        
+        if (!(await notSubscribed(userId))) {
+            await answerCallbackQuery(callbackQuery.id, "✅ Thanks for joining! You can now use the bot.");
+            await deleteMessage(callbackQuery.message.chat.id, callbackQuery.message.message_id);
+        } else {
+            await answerCallbackQuery(callbackQuery.id, "❌ Please join the channel first!");
+        }
+    }
+
     // Check if it's a delete request
     if (callbackData.startsWith("delete_")) {
         const targetMessageId = parseInt(callbackData.split("_")[1]);
@@ -317,12 +328,8 @@ async function sendStartupNotifications() {
     }
 }
 
-// ----------- hhc --------- //
+// ----------- notSubscribed --------- //
 
-// Add to your constants section
-const FORCE_SUB = "kajal_developer"; // e.g., "my_updates_channel"
-
-// Force subscription check
 async function notSubscribed(userId) {
     if (!FORCE_SUB) return false;
     
@@ -331,43 +338,47 @@ async function notSubscribed(userId) {
             chat_id: FORCE_SUB,
             user_id: userId
         }));
-        const data = await response.json();
+        const result = await response.json();
         
-        if (data.result.status === 'kicked') {
-            return true; // User is banned
+        if (result.ok) {
+            return result.result.status === 'kicked'; // Banned users
         }
-        return false; // User is subscribed
-    } catch (error) {
-        return true; // Assume not subscribed if error occurs
+        return true; // Not subscribed if error
+    } catch (e) {
+        console.error("Subscription check failed:", e);
+        return true;
     }
 }
 
-// Send subscription prompt
 async function forceSubscribe(event, message) {
-    const buttons = [[
-        { text: "📢 Join Update Channel 📢", url: `https://t.me/${FORCE_SUB}` }
-    ]];
+    const userId = message.from.id;
+    const buttons = [
+        [{ text: "📢 Join Update Channel 📢", url: `https://t.me/${FORCE_SUB}` }],
+        [{ text: "🔄 Try Again", callback_data: `checksub_${userId}` }]
+    ];
     
-    const text = `Hello ${message.from.first_name}\n\nYou need to join my channel to use me!\n\nPlease join:`;
+    const text = `Hello ${message.from.first_name}\n\nYou need to join my channel to use me!\n\nPlease join: @${FORCE_SUB}`;
     
     try {
         const response = await fetch(apiUrl('getChatMember', {
             chat_id: FORCE_SUB,
-            user_id: message.from.id
+            user_id: userId
         }));
-        const data = await response.json();
+        const result = await response.json();
         
-        if (data.result.status === 'kicked') {
-            return sendMessage(message.chat.id, message.message_id, "Sorry, you are banned from using me.");
+        if (result.ok && result.result.status === 'kicked') {
+            return sendMessage(message.chat.id, message.message_id, "Sorry, you're banned from using me");
         }
-    } catch (error) {
-        return sendMessage(
-            message.chat.id,
-            message.message_id,
-            text,
-            buttons
-        );
+    } catch (e) {
+        console.error("Subscription check failed:", e);
     }
+    
+    return sendMessage(
+        message.chat.id,
+        message.message_id,
+        text,
+        buttons
+    );
 }
 
 // ---------- Inline Listener ---------- // 
