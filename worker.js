@@ -27,7 +27,7 @@ async function handleUpdate(update) {
       await sendDonateMessage(message)
     }
     else if (message.text === '/fix') {
-      await sendDonateMessage(message);
+      await sendrenameStartMessage(message);
     }
   } else if (update.callback_query) {
     await handleCallbackQuery(update.callback_query)
@@ -402,7 +402,7 @@ function addPrefixSuffix(inputString, prefix = '', suffix = '') {
 
 //
 
-async function renameStart(message) {
+async function renameStartMessage(message) {
   const fileSize = 0; // You'll need to get this from the message
   const filename = 'file.name'; // You'll need to get this from the message
   
