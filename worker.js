@@ -1,5 +1,5 @@
-const BOT_TOKEN = '7664037049:AAFTD25g8wQ-b_gLV18Kg-Zbv_b1gLtvyzY'; // Replace with your actual bot token
-const START_PIC = 'https://t.me/kajal_developer/98'; // Replace with your image URL
+const BOT_TOKEN = `7664037049:AAFTD25g8wQ-b_gLV18Kg-Zbv_b1gLtvyzY`; // Replace with your actual bot token
+const START_PIC = `https://t.me/kajal_developer/98`; // Replace with your image URL
 const BASE_URL = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
 // Text templates
